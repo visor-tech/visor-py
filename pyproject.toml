@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visor-py"
+version = "2024.12.1"
+description = "A Python Library for VISoR Image."
+authors = [
+    { name = "Zijian Yi", email = "arrowzeke@gmail.com" }
+]
+readme = "README.md"
+license = { text = "BSD" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.11"
+dependencies = [
+  "dask[complete]==2024.9.1",
+  "zarr==2.18.3",
+  "numcodecs==0.13.0"
+]
+keywords = ["VISoR"]
+
+[project.urls]
+repository = "https://github.com/visor-tech/visor-py"
