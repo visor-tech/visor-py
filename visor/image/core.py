@@ -191,7 +191,7 @@ class Image:
             json.dump(arr_info, aif, indent=2)
 
         if selected and 'raw' == img_type:
-            selected_file = self.path/'visor_raw_images'
+            selected_file = self.path/'visor_raw_images'/'selected.json'
             with open(selected_file, 'w') as sf:
                 json.dump(selected, sf, indent=2)
 

@@ -159,7 +159,8 @@ class TestImageWrite(TestBase):
                       self.dst_img_file,
                       self.resolution,
                       self.src_img_info,
-                      self.arr.info)
+                      self.arr.info,
+                      [{'path':'slice_1_10x.zarr','channels':['640']}])
         arr = dst_img.read(self.dst_img_type,
                            f'{self.dst_img_file}.zarr',
                            0)
