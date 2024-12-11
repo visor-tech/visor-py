@@ -3,7 +3,7 @@ import os
 import json
 import zarr
 import dask.array as da
-from numcodecs import Blosc
+import numcodecs
 
 # Schema Reference: https://visor-tech.github.io/visor-data-schema
 
@@ -157,7 +157,8 @@ class Image:
     def write(self, arr:da, img_type:str, file:str,
                     resolution:int, img_info:dict,
                     arr_info:dict, selected:dict=None,
-                    compression:str='zstd', clevel:int=5):
+                    compression:str='zstd', clevel:int|dict = 5,
+                    overwrite:bool=False):
         """
         Read Array from Image
 
@@ -170,7 +171,16 @@ class Image:
             arr_info    : metadata to write to .zattrs
             selected    : optional metadata to write to selected.json
             compression : compression algorithm to use for zarr, default to 'zstd'
-            clevel      : compression level to use for zarr, default to 5
+            clevel      : compression level to use for zarr, default to 5,
+                          might be a dict to specify detailed compression settings
+        
+        Notes:
+            Common compressor settings:
+                compression     clevel
+                'zstd'          5
+                'blosc'         {'cname':'zstd', 'clevel':5, 'shuffle':1}
+                'ffmpeg'        {'crf':28}
+            Before using 'ffmpeg' you need to import numcodecs_ffmpeg.
         """
 
         if self.mode != 'w':
@@ -178,10 +188,19 @@ class Image:
         
         zarr_file = self.path/f'visor_{img_type}_images'/f'{file}.zarr'
         component = str(resolution)
+        # choose a compressor
+        if compression in ['zstd', 'blosclz', 'lz4', 'lz4hc', 'zlib', 'snappy']:
+            # prefer Blosc implimentation than others in numcodecs
+            #same as compressor=Blosc(cname=compression, clevel=clevel))
+            compr_config = {'id':'blosc', 'cname':compression, 'clevel':clevel}
+        else:
+            compr_config = {'id':compression, **clevel}
+        compressor = numcodecs.registry.get_codec(compr_config)
         da.to_zarr(arr, zarr_file,
                    dimension_separator=os.sep,
                    component=component,
-                   compressor=Blosc(cname=compression, clevel=clevel))
+                   overwrite=overwrite,
+                   compressor=compressor)
         
         img_info_file = self.path/'info.json'
         with open(img_info_file, 'w') as iif:
