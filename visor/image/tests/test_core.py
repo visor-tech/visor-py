@@ -4,7 +4,7 @@
 from pathlib import Path
 import unittest
 import shutil
-
+from numcodecs import Blosc
 import visor.image as vimg
 
 class TestBase(unittest.TestCase):
@@ -187,6 +187,7 @@ class TestImageWrite(TestBase):
 
     def test_image_write_compress(self):
         dst_img = vimg.open_vsr(self.dst_path, 'w')
+        compressor = Blosc(cname='zstd', clevel=5)
         dst_img.write(self.arr.array,
                       self.dst_img_type,
                       self.dst_img_file,
@@ -194,8 +195,7 @@ class TestImageWrite(TestBase):
                       self.src_img_info,
                       self.arr.info,
                       [{'path':'slice_1_10x.zarr','channels':['640']}],
-                      'blosc',
-                      {'cname':'zstd', 'clevel':5, 'shuffle':1})
+                      compressor)
         arr = dst_img.read(self.dst_img_type,
                            f'{self.dst_img_file}.zarr',
                            0)
