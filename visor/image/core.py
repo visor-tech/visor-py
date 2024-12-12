@@ -4,7 +4,6 @@ import json
 import zarr
 import dask.array as da
 import numcodecs
-from numcodecs import Blosc
 
 # Schema Reference: https://visor-tech.github.io/visor-data-schema
 
@@ -158,7 +157,7 @@ class Image:
     def write(self, arr:da, img_type:str, file:str,
                     resolution:int, img_info:dict,
                     arr_info:dict, selected:dict=None,
-                    compressor:numcodecs.abc.Codec = Blosc(cname='zstd', clevel=5),
+                    compressor:numcodecs.abc.Codec = numcodecs.Blosc(cname='zstd', clevel=5),
                     overwrite:bool=False):
         """
         Read Array from Image
