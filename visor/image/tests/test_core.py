@@ -25,12 +25,17 @@ class TestCore(TestBase):
         self.assertEqual(img.info['project_name'], 'VISOR')
         self.assertEqual(img.info['species'], 'Mouse')
         self.assertEqual(img.info['subproject_name'], 'XXX-XXXX-1X7-3X')
-        self.assertEqual(img.image_types, ['raw'])
+        self.assertEqual(img.image_types, ['raw','compr'])
         self.assertEqual(img.transforms, [])
-        self.assertEqual(img.image_files, {'raw': [
-            {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
-            {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},
-        ]})
+        self.assertEqual(img.image_files, {
+            'raw': [
+                {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
+                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]}
+            ],
+            'compr': [
+                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640']}
+            ]
+        })
 
 
     def test_open_vsr_w(self):
@@ -52,10 +57,15 @@ class TestImageReadOnly(TestBase):
 
     def test_image_list(self):
 
-        self.assertEqual(self.img.list(), {'raw': [
-            {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
-            {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},
-        ]})
+        self.assertEqual(self.img.list(), {
+            'raw': [
+                {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
+                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},
+            ],
+            'compr': [
+                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640']}
+            ]
+        })
         self.assertEqual(self.img.list('raw'), [
             {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
             {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},

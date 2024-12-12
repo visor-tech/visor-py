@@ -52,8 +52,8 @@ class Image:
                     self.image_files[image_type] = json.load(sf)
             else:
                 self.image_files[image_type] = [{
-                    "path": d,
-                    "channels": self._get_channels(dir/f/'.zattr')
+                    "path": d.name,
+                    "channels": self._get_channels(dir/d/'.zattrs')
                 } for d in dir.iterdir() if d.suffix == '.zarr']
 
 
@@ -85,6 +85,7 @@ class Image:
         return transforms
 
 
+    @staticmethod
     def _get_channels(meta_file):
         """
         Private method to get channel list from metadata file
@@ -100,7 +101,7 @@ class Image:
             meta = json.load(mf)
         return [c['wavelength'] for c in meta['channels']]
 
-
+    @staticmethod
     def _get_stacks(meta_file):
         """
         Private method to get stack list
