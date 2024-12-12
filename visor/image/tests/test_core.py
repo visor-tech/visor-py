@@ -1,7 +1,10 @@
+# Run at root dir by
+#   python -m unittest visor/image/tests/test_core.py
+
 from pathlib import Path
 import unittest
 import shutil
-
+from numcodecs import Blosc
 import visor.image as vimg
 
 class TestBase(unittest.TestCase):
@@ -182,6 +185,21 @@ class TestImageWrite(TestBase):
         self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
         self.assertEqual(arr.array.shape, (2,2,4,4,4))
 
+    def test_image_write_compress(self):
+        dst_img = vimg.open_vsr(self.dst_path, 'w')
+        compressor = Blosc(cname='zstd', clevel=5)
+        dst_img.write(self.arr.array,
+                      self.dst_img_type,
+                      self.dst_img_file,
+                      self.resolution,
+                      self.src_img_info,
+                      self.arr.info,
+                      [{'path':'slice_1_10x.zarr','channels':['640']}],
+                      compressor)
+        arr = dst_img.read(self.dst_img_type,
+                           f'{self.dst_img_file}.zarr',
+                           0)
+        self.assertEqual((arr.array - self.arr.array).any().compute(), False)
 
 # class TestImageUpdate(TestBase):
 

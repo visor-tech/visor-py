@@ -3,7 +3,7 @@ import os
 import json
 import zarr
 import dask.array as da
-from numcodecs import Blosc
+import numcodecs
 
 # Schema Reference: https://visor-tech.github.io/visor-data-schema
 
@@ -157,7 +157,8 @@ class Image:
     def write(self, arr:da, img_type:str, file:str,
                     resolution:int, img_info:dict,
                     arr_info:dict, selected:dict=None,
-                    compression:str='zstd', clevel:int=5):
+                    compressor:numcodecs.abc.Codec = numcodecs.Blosc(cname='zstd', clevel=5),
+                    overwrite:bool=False):
         """
         Read Array from Image
 
@@ -169,8 +170,9 @@ class Image:
             img_info    : metadata to write to info.json
             arr_info    : metadata to write to .zattrs
             selected    : optional metadata to write to selected.json
-            compression : compression algorithm to use for zarr, default to 'zstd'
-            clevel      : compression level to use for zarr, default to 5
+            compressor  : compression algorithm to use for zarr,
+                          default to Blosc(cname='zstd', clevel=5).
+            overwrite   : overwrite the existing file if True, default to False.
         """
 
         if self.mode != 'w':
@@ -181,7 +183,8 @@ class Image:
         da.to_zarr(arr, zarr_file,
                    dimension_separator=os.sep,
                    component=component,
-                   compressor=Blosc(cname=compression, clevel=clevel))
+                   overwrite=overwrite,
+                   compressor=compressor)
         
         img_info_file = self.path/'info.json'
         with open(img_info_file, 'w') as iif:
