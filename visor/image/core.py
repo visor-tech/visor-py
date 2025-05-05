@@ -1,9 +1,10 @@
 from pathlib import Path
-import os
 import json
-import zarr
+import numpy as np
 import dask.array as da
-import numcodecs
+import zarr
+import zarrs
+zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 
 # Schema Reference: https://visor-tech.github.io/visor-data-schema
 
@@ -53,7 +54,7 @@ class Image:
             else:
                 self.image_files[image_type] = [{
                     "path": d.name,
-                    "channels": self._get_channels(dir/d/'.zattrs')
+                    "channels": self._get_channels(dir/d/'zarr.json')
                 } for d in dir.iterdir() if d.suffix == '.zarr']
 
 
@@ -99,7 +100,7 @@ class Image:
 
         with open(meta_file) as mf:
             meta = json.load(mf)
-        return [c['wavelength'] for c in meta['channels']]
+        return [c['wavelength'] for c in meta['attributes']['visor']['channels']]
 
     @staticmethod
     def _get_stacks(meta_file):
@@ -115,7 +116,7 @@ class Image:
 
         with open(meta_file) as mf:
             meta = json.load(mf)
-        return [s['label'] for s in meta['visor_stacks']]
+        return [s['label'] for s in meta['attributes']['visor']['visor_stacks']]
 
 
     def list(self, img_type=None):
@@ -154,21 +155,21 @@ class Image:
                      resolution=resolution)
 
 
-    def write(self, arr:da, img_type:str, file:str,
-                    resolution:int, img_info:dict,
-                    arr_info:dict, selected:dict=None,
-                    compressor:numcodecs.abc.Codec = numcodecs.Blosc(cname='zstd', clevel=5),
-                    overwrite:bool=False):
+    def write(self, arr:np.array, img_type:str, file:str,
+                    resolution:int, img_info:dict, arr_info:dict,
+                    chunk_size:tuple, shard_size:tuple,
+                    selected:dict=None, overwrite:bool=False,
+                    compressor:zarr.codecs.BloscCodec=zarr.codecs.BloscCodec(cname='zstd', clevel=5)):
         """
         Read Array from Image
 
         Parameters:
-            arr         : dask array to write
+            arr         : numpy array to write
             img_type    : visor image type, e.g. 'raw', 'projn', etc.
             file        : file name without extension
             resolution  : resolution level
             img_info    : metadata to write to info.json
-            arr_info    : metadata to write to .zattrs
+            arr_info    : metadata to write to zarr.json
             selected    : optional metadata to write to selected.json
             compressor  : compression algorithm to use for zarr,
                           default to Blosc(cname='zstd', clevel=5).
@@ -179,20 +180,30 @@ class Image:
             raise PermissionError('"write" method is only available in "w" mode.')
         
         zarr_file = self.path/f'visor_{img_type}_images'/f'{file}.zarr'
-        component = str(resolution)
-        da.to_zarr(arr, zarr_file,
-                   dimension_separator=os.sep,
-                   component=component,
-                   overwrite=overwrite,
-                   compressor=compressor)
+
+        zarr_arr = zarr.create_array(
+            store=str(zarr_file),
+            name=str(resolution),
+            shape=arr.shape,
+            dtype=arr.dtype,
+            chunks=chunk_size,
+            shards=shard_size,
+            compressors=compressor,
+            overwrite=overwrite
+        )
+        zarr_arr[...] = arr
         
         img_info_file = self.path/'info.json'
         with open(img_info_file, 'w') as iif:
             json.dump(img_info, iif, indent=2)
 
-        arr_info_file = zarr_file/'.zattrs'
+        arr_info_file = zarr_file/'zarr.json'
+        zarr_json = {}
+        with open(arr_info_file, 'r') as aif:
+            zarr_json = json.load(aif)
         with open(arr_info_file, 'w') as aif:
-            json.dump(arr_info, aif, indent=2)
+            zarr_json['attributes'] = arr_info
+            json.dump(zarr_json, aif, indent=2)
 
         if selected and 'raw' == img_type:
             selected_file = self.path/'visor_raw_images'/'selected.json'
@@ -220,44 +231,44 @@ class Array:
         # resolution
         self.resolution = resolution
 
-        # .zarray
-        zarray_file = path/str(resolution)/'.zarray'
-        if not zarray_file.exists():
-            raise FileNotFoundError(f'Must contain a .zarray file in {path} directory.')
+        # zarr.json
+        zarr_json_file = path/str(resolution)/'zarr.json'
+        if not zarr_json_file.exists():
+            raise FileNotFoundError(f'Must contain a zarr.json file in {path/str(resolution)} directory.')
         
         # info
-        meta_file = path/'.zattrs'
+        meta_file = path/'zarr.json'
         with open(meta_file) as mf:
             self.info = json.load(mf)
 
         # dictionares of named dimension
         self.channel_map = {}
-        if 'channels' in self.info:
-            for channel in self.info['channels']:
-                self.channel_map[channel['wavelength']] = channel['index']
         self.stack_map = {}
-        if 'visor_stacks' in self.info:
-            for stack in self.info['visor_stacks']:
-                self.stack_map[stack['label']] = stack['index']
+        if 'visor' in self.info['attributes']:
+            if 'channels' in self.info['attributes']['visor']:
+                for channel in self.info['attributes']['visor']['channels']:
+                    self.channel_map[channel['wavelength']] = channel['index']
+            if 'visor_stacks' in self.info['attributes']['visor']:
+                for stack in self.info['attributes']['visor']['visor_stacks']:
+                    self.stack_map[stack['label']] = stack['index']
 
         # array
-        _store = zarr.DirectoryStore(path/str(resolution))
-        z_array = zarr.open(_store, mode='r')
-        self.array = da.from_array(z_array, chunks=z_array.chunks)
+        _store = zarr.storage.LocalStore(path/str(resolution))
+        self.array = zarr.open(_store, mode='r')
 
 
     def read(self, channel=None, stack=None):        
         """
-        Read a subarray from this array with optional `s` and `c` dimensions.
+        Read a subarray from this array with optional `vs` and `ch` dimensions.
         
         Parameters:
             stack: str or None, the visor_stack label
-                Get index from stack_map. If None, take all `s` subarrays.
+                Get index from stack_map. If None, take all `vs` subarrays.
             channel: str or None, the channel wavelength
-                Get index from channel_map. If None, take all `c` subarrays.
+                Get index from channel_map. If None, take all `ch` subarrays.
         
         Returns:
-            dask.array
+            zarr.core.array.Array
         """
         # Total dimensions in the array
         ndim = self.array.ndim
@@ -266,29 +277,32 @@ class Array:
         arr_slices = [slice(None)] * ndim
 
         # Validate `stack` and `channel` based on array dimensions
-        if ndim == 5:  # (s, c, z, y, x)
+        if ndim == 5:  # (vs, ch, z, y, x)
             if (stack is not None) and (stack not in self.stack_map):
                 raise KeyError(f'stack {stack} does not exist, valid stacks: {list(self.stack_map.keys())}')
             if (channel is not None) and (channel not in self.channel_map):
                 raise KeyError(f'channel {channel} does not exist, valid channels: {list(self.channel_map.keys())}')
-        elif ndim == 4:  # (c, z, y, x)
+        elif ndim == 4:  # (ch, z, y, x)
             if (channel is not None) and (channel not in self.channel_map):
                 raise KeyError(f'channel {channel} does not exist, valid channels: {list(self.channel_map.keys())}')
         elif ndim == 3:  # (z, y, x)
             if stack is not None or channel is not None:
-                raise IndexError("'s' or 'c' dimensions do not exist in a 3D array")
+                raise IndexError("'vs' or 'ch' dimensions do not exist in a 3D array")
 
         # Map the dimensions dynamically based on `ndim`
-        if ndim == 5:  # (s, c, z, y, x)
+        if ndim == 5:  # (vs, ch, z, y, x)
             if stack is not None:
-                arr_slices[0] = self.stack_map[stack]
+                idx = self.stack_map[stack]
+                arr_slices[0] = slice(idx, idx+1)
             if channel is not None:
-                arr_slices[1] = self.channel_map[channel]
-        elif ndim == 4:  # (c, z, y, x)
+                idx = self.channel_map[channel]
+                arr_slices[1] = slice(idx, idx+1)
+        elif ndim == 4:  # (ch, z, y, x)
             if channel is not None:
-                arr_slices[0] = self.channel_map[channel]
+                idx = self.channel_map[channel]
+                arr_slices[0] = slice(idx, idx+1)
         elif ndim == 3:  # (z, y, x)
-            pass  # No `s` or `c` dimensions to handle
+            pass  # No `vs` or `ch` dimensions to handle
 
         # Apply the arr_slices to the array
         return self.array[tuple(arr_slices)]
