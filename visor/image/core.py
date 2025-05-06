@@ -267,7 +267,7 @@ class Array:
                 Get index from channel_map. If None, take all `ch` subarrays.
         
         Returns:
-            zarr.core.array.Array
+            numpy.ndarray
         """
         # Total dimensions in the array
         ndim = self.array.ndim
