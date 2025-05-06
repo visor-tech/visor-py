@@ -1,7 +1,6 @@
 from pathlib import Path
 import json
 import numpy as np
-import dask.array as da
 import zarr
 import zarrs
 zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
@@ -155,7 +154,7 @@ class Image:
                      resolution=resolution)
 
 
-    def write(self, arr:np.array, img_type:str, file:str,
+    def write(self, arr:np.ndarray, img_type:str, file:str,
                     resolution:int, img_info:dict, arr_info:dict,
                     chunk_size:tuple, shard_size:tuple,
                     selected:dict=None, overwrite:bool=False,
