@@ -1,6 +1,9 @@
 # visor-py
 A Python Library for VISoR Image.
 
+> [!NOTE]
+> Since [v2025.5.1](https://github.com/visor-tech/visor-py/releases/tag/v2025.5.1), we've switched to [Zarr v3](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html), are using [zarrs](https://github.com/ilan-gold/zarrs-python) to speed up I/O, and have replaced [dask](https://github.com/dask/dask) since it has not yet optimized its I/O for sharded Zarr.
+
 ## Usage
 #### Install Module
 ```sh
