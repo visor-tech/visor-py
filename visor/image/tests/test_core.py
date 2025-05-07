@@ -4,7 +4,8 @@
 from pathlib import Path
 import unittest
 import shutil
-from numcodecs import Blosc
+import zarr
+import numpy as np
 import visor.image as vimg
 
 class TestBase(unittest.TestCase):
@@ -81,9 +82,14 @@ class TestImageReadOnly(TestBase):
         arr = self.img.read('raw',self.zarr_file,0)
 
         self.assertIsInstance(arr, vimg.core.Array)
-        self.assertIn('multiscales', arr.info)
-        self.assertIn('visor_stacks', arr.info)
-        self.assertIn('channels', arr.info)
+        self.assertEqual(arr.info['zarr_format'], 3)
+        self.assertIn('attributes', arr.info)
+        self.assertIn('ome', arr.info['attributes'])
+        self.assertIn('visor', arr.info['attributes'])
+        self.assertEqual(arr.info['attributes']['ome']['version'], '0.5')
+        self.assertIn('multiscales', arr.info['attributes']['ome'])
+        self.assertIn('visor_stacks', arr.info['attributes']['visor'])
+        self.assertIn('channels', arr.info['attributes']['visor'])
         self.assertEqual(arr.channel_map, {'488':0, '561':1})
         self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
         self.assertEqual(arr.array.shape, (2,2,4,4,4))
@@ -92,7 +98,7 @@ class TestImageReadOnly(TestBase):
 
         arr = self.img.read('raw',self.zarr_file,resolution=self.resolution)
         with self.assertRaises(PermissionError) as context:
-            self.img.write(arr,'raw',self.zarr_file,0,{},{})
+            self.img.write(arr,'raw',self.zarr_file,0,{},{},(),())
         self.assertEqual(str(context.exception), '"write" method is only available in "w" mode.')
 
 
@@ -114,19 +120,19 @@ class TestArrayRead(TestBase):
     def test_array_read_channel(self):
 
         arr = self.arr.read(channel='488')
-        self.assertEqual(arr.shape, (2,4,4,4))
+        self.assertEqual(arr.shape, (2,1,4,4,4))
 
 
     def test_array_read_stack(self):
 
         arr = self.arr.read(stack='stack_1')
-        self.assertEqual(arr.shape, (2,4,4,4))
+        self.assertEqual(arr.shape, (1,2,4,4,4))
 
 
     def test_array_read_channel_and_stack(self):
 
         arr = self.arr.read(channel='488',stack='stack_1')
-        self.assertEqual(arr.shape, (4,4,4))
+        self.assertEqual(arr.shape, (1,1,4,4,4))
 
 
     def test_array_read_channel_not_exist(self):
@@ -151,9 +157,11 @@ class TestImageWrite(TestBase):
 
         src_img = vimg.open_vsr(self.path, 'r')
         self.src_img_info = src_img.info
-        self.arr = src_img.read(self.src_img_type,
+        src_arr = src_img.read(self.src_img_type,
                                 f'{self.src_img_file}.zarr',
                                 self.resolution)
+        self.arr = np.random.randint(0,255,size=(2,2,4,4,4), dtype='uint16')
+        self.arr_info = src_arr.info['attributes']
         
         self.dst_path = self.path.parent/'tmp.vsr'
 
@@ -167,39 +175,48 @@ class TestImageWrite(TestBase):
     def test_image_write(self):
         
         dst_img = vimg.open_vsr(self.dst_path, 'w')
-        dst_img.write(self.arr.array,
+        dst_img.write(self.arr,
                       self.dst_img_type,
                       self.dst_img_file,
                       self.resolution,
                       self.src_img_info,
-                      self.arr.info,
-                      [{'path':'slice_1_10x.zarr','channels':['640']}])
+                      self.arr_info,
+                      chunk_size=(1,1,2,2,2),
+                      shard_size=(1,1,4,4,4),
+                      selected=[{'path':'slice_1_10x.zarr','channels':['640']}])
         arr = dst_img.read(self.dst_img_type,
                            f'{self.dst_img_file}.zarr',
                            0)
         self.assertIsInstance(arr, vimg.core.Array)
-        self.assertIn('multiscales', arr.info)
-        self.assertIn('visor_stacks', arr.info)
-        self.assertIn('channels', arr.info)
+        self.assertEqual(arr.info['zarr_format'], 3)
+        self.assertIn('attributes', arr.info)
+        self.assertIn('ome', arr.info['attributes'])
+        self.assertIn('visor', arr.info['attributes'])
+        self.assertEqual(arr.info['attributes']['ome']['version'], '0.5')
+        self.assertIn('multiscales', arr.info['attributes']['ome'])
+        self.assertIn('visor_stacks', arr.info['attributes']['visor'])
+        self.assertIn('channels', arr.info['attributes']['visor'])
         self.assertEqual(arr.channel_map, {'488':0, '561':1})
         self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
         self.assertEqual(arr.array.shape, (2,2,4,4,4))
 
     def test_image_write_compress(self):
         dst_img = vimg.open_vsr(self.dst_path, 'w')
-        compressor = Blosc(cname='zstd', clevel=5)
-        dst_img.write(self.arr.array,
+        compressor = zarr.codecs.BloscCodec(cname='zstd', clevel=5)
+        dst_img.write(self.arr,
                       self.dst_img_type,
                       self.dst_img_file,
                       self.resolution,
                       self.src_img_info,
-                      self.arr.info,
-                      [{'path':'slice_1_10x.zarr','channels':['640']}],
-                      compressor)
+                      self.arr_info,
+                      chunk_size=(1,1,2,2,2),
+                      shard_size=(1,1,4,4,4),
+                      selected=[{'path':'slice_1_10x.zarr','channels':['640']}],
+                      compressor=compressor)
         arr = dst_img.read(self.dst_img_type,
                            f'{self.dst_img_file}.zarr',
                            0)
-        self.assertEqual((arr.array - self.arr.array).any().compute(), False)
+        self.assertEqual((arr.array - self.arr).any(), False)
 
 # class TestImageUpdate(TestBase):
 
