@@ -50,10 +50,15 @@ class Image:
             if 'raw' == image_type:
                 with open(dir/'selected.json') as sf:
                     self.image_files[image_type] = json.load(sf)
+                    for idx in range(len(self.image_files[image_type])):
+                        d = self.image_files[image_type][idx]["path"]
+                        self.image_files[image_type][idx]["resolutions"] = \
+                            self._get_resolutions(dir/d/'zarr.json')
             else:
                 self.image_files[image_type] = [{
                     "path": d.name,
-                    "channels": self._get_channels(dir/d/'zarr.json')
+                    "channels": self._get_channels(dir/d/'zarr.json'),
+                    "resolutions": self._get_resolutions(dir/d/'zarr.json')
                 } for d in dir.iterdir() if d.suffix == '.zarr']
 
 
@@ -117,6 +122,22 @@ class Image:
             meta = json.load(mf)
         return [s['label'] for s in meta['attributes']['visor']['visor_stacks']]
 
+
+    @staticmethod
+    def _get_resolutions(meta_file):
+        """
+        Private method to get resolution list from metadata file
+
+        Parameters:
+            meta_file : the metadata file path
+
+        Returns:
+            List of resolution objects
+        """
+
+        with open(meta_file) as mf:
+            meta = json.load(mf)
+        return meta['attributes']['ome']['multiscales'][0]['datasets']
 
     def list(self, img_type=None):
         """
