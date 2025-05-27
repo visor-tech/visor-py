@@ -33,11 +33,32 @@ class TestCore(TestBase):
         self.assertEqual(img.transforms, [])
         self.assertEqual(img.image_files, {
             'raw': [
-                {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
-                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]}
+                {'path':'slice_1_10x.zarr', 'channels':["488","561"],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]},
+                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]}
             ],
             'compr': [
-                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640']}
+                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640'],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]}
             ]
         })
 
@@ -63,16 +84,51 @@ class TestImageReadOnly(TestBase):
 
         self.assertEqual(self.img.list(), {
             'raw': [
-                {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
-                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},
+                {'path':'slice_1_10x.zarr', 'channels':["488","561"],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]},
+                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]}
             ],
             'compr': [
-                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640']}
+                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640'],
+                 'resolutions':[{
+                     "path": "0",
+                     "coordinateTransformations": [{
+                         "type": "scale",
+                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                     }]}
+                 ]}
             ]
         })
         self.assertEqual(self.img.list('raw'), [
-            {'path':'slice_1_10x.zarr', 'channels':["488","561"]},
-            {'path':'slice_1_10x_1.zarr', 'channels':["405","640"]},
+            {'path':'slice_1_10x.zarr', 'channels':["488","561"],
+                'resolutions':[{
+                    "path": "0",
+                    "coordinateTransformations": [{
+                        "type": "scale",
+                        "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                    }]}
+                ]},
+            {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
+                'resolutions':[{
+                    "path": "0",
+                    "coordinateTransformations": [{
+                        "type": "scale",
+                        "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
+                    }]}
+                ]}
         ])
         self.assertEqual(self.img.list('projn'), {})
 
