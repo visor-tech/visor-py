@@ -6,7 +6,7 @@ import unittest
 import shutil
 import zarr
 import numpy as np
-import visor.image as vimg
+import visor
 
 class TestBase(unittest.TestCase):
 
@@ -20,18 +20,30 @@ class TestBase(unittest.TestCase):
 
 class TestCore(TestBase):
 
-    def test_open_vsr_r(self):
+    def test_open_read_only(self):
+        vsr = visor.open(self.path, 'r')
+        self.assertIsInstance(vsr, visor.core.Vsr)
 
-        img = vimg.open_vsr(self.path, 'r')
-        
-        self.assertIsInstance(img, vimg.core.Image)
-        self.assertEqual(img.info['animal_id'], 'VISOR001')
-        self.assertEqual(img.info['project_name'], 'VISOR')
-        self.assertEqual(img.info['species'], 'Mouse')
-        self.assertEqual(img.info['subproject_name'], 'XXX-XXXX-1X7-3X')
-        self.assertEqual(img.image_types, ['raw','compr'])
-        self.assertEqual(img.transforms, [])
-        self.assertEqual(img.image_files, {
+    def test_open_read_write(self):
+        vsr = visor.open(self.path, 'w')
+        self.assertIsInstance(vsr, visor.core.Vsr)
+
+class TestInfo(TestBase):
+
+    def setUp(self):
+        super().setUp()
+        self.vsr = visor.open(self.path, 'r')
+
+    def test_info(self):
+
+        info = self.vsr.info()
+
+        self.assertEqual(info.animal_id, 'VISOR001')
+        self.assertEqual(info.project_name, 'VISOR')
+        self.assertEqual(info.species, 'Mouse')
+        self.assertEqual(info.subproject_name, 'XXX-XXXX-1X7-3X')
+        self.assertEqual(info.transform_versions, [])
+        self.assertEqual(info.image_files, {
             'raw': [
                 {'path':'slice_1_10x.zarr', 'channels':["488","561"],
                  'resolutions':[{
@@ -63,10 +75,6 @@ class TestCore(TestBase):
         })
 
 
-    def test_open_vsr_w(self):
-
-        img = vimg.open_vsr(self.path, 'w')
-        self.assertIsInstance(img, vimg.core.Image)
 
 
 class TestImageReadOnly(TestBase):
@@ -74,7 +82,7 @@ class TestImageReadOnly(TestBase):
     def setUp(self):
 
         super().setUp()
-        self.img = vimg.open_vsr(self.path, 'r')
+        self.img = visor.open_vsr(self.path, 'r')
 
         self.zarr_file = 'slice_1_10x.zarr'
         self.resolution = 0
@@ -137,7 +145,7 @@ class TestImageReadOnly(TestBase):
 
         arr = self.img.read('raw',self.zarr_file,0)
 
-        self.assertIsInstance(arr, vimg.core.Array)
+        self.assertIsInstance(arr, visor.core.Array)
         self.assertEqual(arr.info['zarr_format'], 3)
         self.assertIn('attributes', arr.info)
         self.assertIn('ome', arr.info['attributes'])
@@ -163,7 +171,7 @@ class TestArrayRead(TestBase):
     def setUp(self):
 
         super().setUp()
-        img = vimg.open_vsr(self.path, 'w')
+        img = visor.open_vsr(self.path, 'w')
         self.arr = img.read('raw','slice_1_10x.zarr',0)
 
 
@@ -211,7 +219,7 @@ class TestImageWrite(TestBase):
         
         self.resolution = 0
 
-        src_img = vimg.open_vsr(self.path, 'r')
+        src_img = visor.open_vsr(self.path, 'r')
         self.src_img_info = src_img.info
         src_arr = src_img.read(self.src_img_type,
                                 f'{self.src_img_file}.zarr',
@@ -230,7 +238,7 @@ class TestImageWrite(TestBase):
 
     def test_image_write(self):
         
-        dst_img = vimg.open_vsr(self.dst_path, 'w')
+        dst_img = visor.open_vsr(self.dst_path, 'w')
         dst_img.write(self.arr,
                       self.dst_img_type,
                       self.dst_img_file,
@@ -243,7 +251,7 @@ class TestImageWrite(TestBase):
         arr = dst_img.read(self.dst_img_type,
                            f'{self.dst_img_file}.zarr',
                            0)
-        self.assertIsInstance(arr, vimg.core.Array)
+        self.assertIsInstance(arr, visor.core.Array)
         self.assertEqual(arr.info['zarr_format'], 3)
         self.assertIn('attributes', arr.info)
         self.assertIn('ome', arr.info['attributes'])
@@ -257,7 +265,7 @@ class TestImageWrite(TestBase):
         self.assertEqual(arr.array.shape, (2,2,4,4,4))
 
     def test_image_write_compress(self):
-        dst_img = vimg.open_vsr(self.dst_path, 'w')
+        dst_img = visor.open_vsr(self.dst_path, 'w')
         compressor = zarr.codecs.BloscCodec(cname='zstd', clevel=5)
         dst_img.write(self.arr,
                       self.dst_img_type,
@@ -287,7 +295,7 @@ class TestImageWrite(TestBase):
         
 #         self.resolution = 0
 
-#         src_img = vimg.open_vsr(self.path, 'r')
+#         src_img = visor.open_vsr(self.path, 'r')
 #         self.src_img_info = src_img.info
 #         self.arr = src_img.read(self.src_img_type,
 #                                 f'{self.src_img_file}.zarr',
@@ -304,7 +312,7 @@ class TestImageWrite(TestBase):
 
 #     def test_image_write(self):
         
-#         dst_img = vimg.open_vsr(self.dst_path, 'w')
+#         dst_img = visor.open_vsr(self.dst_path, 'w')
 #         dst_img.write(self.arr.array,
 #                       self.dst_img_type,
 #                       self.dst_img_file,
@@ -314,7 +322,7 @@ class TestImageWrite(TestBase):
 #         arr = dst_img.read(self.dst_img_type,
 #                            f'{self.dst_img_file}.zarr',
 #                            0)
-#         self.assertIsInstance(arr, vimg.core.Array)
+#         self.assertIsInstance(arr, visor.core.Array)
 #         self.assertIn('multiscales', arr.info)
 #         self.assertIn('visor_stacks', arr.info)
 #         self.assertIn('channels', arr.info)
