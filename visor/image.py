@@ -9,59 +9,119 @@ zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 
 class Image:
 
-    def __init__(self, path:Path, mode:str):
+    def __init__(self, path:Path):
         """
         Constructor of Image
 
         Parameters:
-            path : the .vsr file path
-            mode : 'r' for read_only
-                   'w' for write
+            path : the .zarr image file path
         """
-        # path
-        path = Path(path)
-        if path.suffix != '.vsr':
-            raise ValueError(f'The path {path} does not have .vsr extension.')
+        if path.suffix != '.zarr':
+            raise ValueError(f'The path {path} does not have .zarr extension.')
         if not path.exists() or not path.is_dir():
-            if 'w' == mode:
-                path.mkdir(parents=True, exist_ok=True)
-            else: 
-                raise NotADirectoryError(f'The path {path} is not a directory.')
+            raise NotADirectoryError(f'The path {path} is not a directory.')
         self.path = path
-        self.mode = mode
+        meta_file = path/'zarr.json'
 
-        # info
-        info_file = path/'info.json'
-        if not info_file.exists():
-            if 'w' == mode:
-                info_file.touch()
-                info_file.write_text('{}')
-            else:
-                raise FileNotFoundError(f'Metadata file info.json is not found in {path}.')
-        with open(info_file) as f:
-            self.info = json.load(f)
+    def load_resolution(self, resolution='0'):
+        return Array
+    
+    def write(arr=slice_arr,
+              img_type='raw',
+              file=f'slice_{str(idx_slice)}_10x',
+              resolution=0,
+              img_info=img_info,
+              arr_info=arr_info,
+              chunk_size=CHUNK_SIZE,
+              shard_size=SHARD_SIZE,
+              selected=selected)
+ ##   
+    array = img.resolution('0')
+    array:zarr.array = img.load_resolution('0')
+    array[0,0,:1,:1,:1]
 
-        # file structure
-        self.image_types = self._get_image_types()
-        self.transforms = self._get_transforms()
-        self.image_files = {}
-        for image_type in self.image_types:
-            dir = path/f'visor_{image_type}_images'
-            if 'raw' == image_type:
-                with open(dir/'selected.json') as sf:
-                    self.image_files[image_type] = json.load(sf)
-                    for idx in range(len(self.image_files[image_type])):
-                        d = self.image_files[image_type][idx]["path"]
-                        self.image_files[image_type][idx]["resolutions"] = \
-                            self._get_resolutions(dir/d/'zarr.json')
-            else:
-                self.image_files[image_type] = [{
-                    "path": d.name,
-                    "channels": self._get_channels(dir/d/'zarr.json'),
-                    "resolutions": self._get_resolutions(dir/d/'zarr.json')
-                } for d in dir.iterdir() if d.suffix == '.zarr']
+    dask_arr = da.from_array(img.load_resolution('0'))
+    dask_arr = da.from_zarr(img.path,prefix='0/c')
 
 
+    visor.to_vsr(path, image)
+    to_zarr(arry, zarr_file_path)
+#-----
+
+    with open('xxx.json', 'r') as jf:
+        json.dump(jf, {})
+
+#-----
+
+    # vsr = visor.create_vsr(path)
+    vsr = visor.open_vsr(path, mode)
+    vsr.info()
+    vsr.image_info()
+
+    for raw_image_info in vsr.image_info(type='raw'):
+
+      raw_image_name = raw_image_info['name']
+      raw_image = vsr.image(
+          'raw', 
+          raw_image_name, 
+      )
+
+      personnel = 'xxx'
+      date = date_now()
+      compr_image_name = f'{personnel}_{raw_image_name.split('.zarr')[0]}_{date}'
+      compress_image = vsr.image(
+          'compr',
+          compr_image_name,
+          compressor='ffmpeg',
+          shape=(2,1,3,3,3)
+      )
+      
+      for res in raw_image.info()['resolutions'].keys():
+        for st in raw_image.info()['stacks'].keys():
+          for ch in raw_image.info()['channels'].keys():
+              arr = raw_image.read(resolution=res,stack=st,channel=ch)
+              compress_image.write(arr,resolution=res,stack=st,channel=ch)
+        # vsr.add_image(compress_image)
+
+#------------
+    vsr = visor.from_vsr(path)
+
+    for raw_image_info in vsr.image_info(type='raw'):
+
+      raw_image_name = raw_image_info['name']
+      img = vsr.load_image(type='raw', name=raw_image_name)
+
+      personnel = 'xxx'
+      date = date_now()
+      compr_image_name = f'{personnel}_{raw_image_name.split('.zarr')[0]}_{date}'
+      for res in img.info()['resolutions'].keys():
+        arr = img.load_resolution(res)
+        vsr.dump_image(
+            arr, 
+            type='compr', 
+            name=compr_image_name,
+            compressor='ffmpeg',
+            resolution=res,
+            img_info=img_info,
+            arr_info=arr_info,
+            chunk_size=CHUNK_SIZE,
+            shard_size=SHARD_SIZE
+        )
+
+
+
+        # vsr.add_image(compress_image)
+
+    # vsr.open_image(name, type)
+    # vsr.add_image(image):
+    #   path = f'visor_{type}_images'/name
+    #   mkdir(path)
+    #   zarr.write(compression=ffmpeg)
+    
+
+    # image.update()
+
+##
     def _get_image_types(self):
         """
         Private method to get image type list

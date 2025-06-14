@@ -1,109 +1,167 @@
 from pathlib import Path
 import json
 
-class VSR:
+class _VSR:
 
-    def __init__(self, path:Path, mode:str):
+    def __init__(self, path:Path):
         """
-        Constructor of Vsr
+        Constructor of VSR
 
         Parameters:
             path : the .vsr file path
-            mode : 'r' for read_only
-                   'w' for write
         """
-        # path
-        path = Path(path)
         if path.suffix != '.vsr':
             raise ValueError(f'The path {path} does not have .vsr extension.')
         if not path.exists() or not path.is_dir():
-            if 'w' == mode:
-                path.mkdir(parents=True, exist_ok=True)
-            else: 
-                raise NotADirectoryError(f'The path {path} is not a directory.')
+            raise NotADirectoryError(f'The path {path} is not a directory.')
         self.path = path
-        self.mode = mode
+        self.image_types = [d.name.split('_')[1] for d in self.path.glob('visor_*_images')]
+        self.transform_versions = []
+        if (self.path/'visor_recon_transforms').is_dir():
+            self.transform_versions = \
+                [i.name for i in (path/'visor_recon_transforms').iterdir() if i.is_dir()]
 
-
-    def _get_transform_versions(self):
+    def images(self):
         """
-        Private method to get transform version list
+        Collect images in .vsr file
 
         Returns:
-            List of transform versions
+            Collection of image descriptions
         """
+        images = {}
+        for image_type in self.image_types:
 
-        transform_versions = []
-
-        transforms_dir = self.path/'visor_recon_transforms'
-        if transforms_dir.is_dir():
-            transform_versions = transforms_dir.iterdir()
-
-        return transform_versions
-
-
-    def _get_image_files(self):
-        """
-        Private method to get image file list
-
-        Returns:
-            List of image files
-        """
-
-        image_files = []
-
-        image_types = [d.name.split('_')[1] for d in self.path.glob('visor_*_images')]
-        for image_type in image_types:
             dir = self.path/f'visor_{image_type}_images'
+
             if 'raw' == image_type:
                 with open(dir/'selected.json') as sf:
-                    self.image_files[image_type] = json.load(sf)
-                    for idx in range(len(self.image_files[image_type])):
-                        d = self.image_files[image_type][idx]["path"]
-                        self.image_files[image_type][idx]["resolutions"] = \
-                            self._get_resolutions(dir/d/'zarr.json')
+                    images['raw'] = json.load(sf)
+                for i in images['raw']:
+                    i['resolutions'] = self._resolutions(dir/f'{i['name']}.zarr'/'zarr.json')
             else:
-                self.image_files[image_type] = [{
-                    "path": d.name,
-                    "channels": self._get_channels(dir/d/'zarr.json'),
-                    "resolutions": self._get_resolutions(dir/d/'zarr.json')
+                images[image_type] = [{
+                    'name': d.name.replace('.zarr',''),
+                    'channels': self._channels(dir/d/'zarr.json'),
+                    'resolutions': self._resolutions(dir/d/'zarr.json')
                 } for d in dir.iterdir() if d.suffix == '.zarr']
 
-        return image_files
+        return images
 
-
-    def get_info(self):
+    @staticmethod
+    def _channels(meta_file):
         """
-        Get vsr file information
+        Private method to get channel list from metadata file
+
+        Parameters:
+            meta_file : the metadata file path
 
         Returns:
-            JSON like object
+            List of channel wavelengths
         """
-        # metadata
-        info_file = self.path/'info.json'
-        if not info_file.exists():
-            raise FileNotFoundError(f'Metadata file info.json is not found in {self.path}.')
-        with open(info_file) as f:
-            info = json.load(f)
 
-        # file structure
-        info.transform_versions = self._get_transform_versions()
-        info.image_files = self._get_image_files()
+        with open(meta_file) as mf:
+            meta = json.load(mf)
+        return [c['wavelength'] for c in meta['attributes']['visor']['channels']]
 
-        return info
+    @staticmethod
+    def _resolutions(meta_file):
+        """
+        Private method to get resolutions list from metadata file
+
+        Parameters:
+            meta_file : the metadata file path
+
+        Returns:
+            List of resolutions
+        """
+
+        resolutions = {}
+
+        with open(meta_file) as mf:
+            meta = json.load(mf)
+        for r in meta['attributes']['ome']['multiscales'][0]['datasets']:
+            resolutions[r['path']] = r['coordinateTransformations'][0]['scale']
+
+        return resolutions
 
 
-
-def open(path:str, mode:str='r'):
+def info(path:str|Path):
     """
-    Open vsr file, as an Vsr object
+    Get information of the VSR file
+
+    Returns:
+        JSON like object
+    """
+    vsr = _VSR(Path(path))
+
+    info_file = vsr.path/'info.json'
+    if not info_file.exists():
+        raise FileNotFoundError(f'Metadata file info.json is not found in {path}.')
+    with open(info_file) as f:
+        info = json.load(f)
+
+    info['image_types'] = vsr.image_types
+    info['transform_versions'] = vsr.transform_versions
+
+    return info
+
+def list_image(path:str|Path, type=None, channel=None):
+    """
+    List image, optionally by filters
+
+    Parameters:
+        type: the image type, see visor.info()['image_types']
+        channel: the channel wavelength
+
+    Returns:
+        Collection of image descriptions
+    """
+    vsr = _VSR(Path(path))
+    images = vsr.images()
+
+    if channel:
+        for image_type in images:
+            images[image_type] = [fo for fo in images[image_type] if channel in fo['channels']]
+
+    if type:
+        images = images[type]
+
+    return images
+
+def list_transform():
+    pass
+
+def create(path:str):
+    """
+    Create vsr file, return a VSR object
 
     Parameters:
         path : the .vsr file path
-        mode : 'r' for read_only
-               'w' for write
 
     Returns:
-        Vsr
+        VSR object
     """
-    return VSR(Path(path), mode)
+
+    vsr_path = Path(path)
+
+    # Validate vsr path
+    if vsr_path.suffix != '.vsr':
+        raise ValueError(f'The path {path} is not valid, must contain .vsr extension.')
+    
+    # Create vsr directory
+    try:
+        vsr_path.mkdir()
+    except FileExistsError:
+        raise FileExistsError(f'VSR {path} already exists.')
+
+    # Create an empty info.json file with comment
+    with open(vsr_path/'info.json', 'w') as info_json:
+        info_json.write('{\n  "_comment": "see https://visor-tech.github.io/visor-data-schema/"\n}')
+    
+    # Create visor_raw_images directory
+    raw_image_path = vsr_path/'visor_raw_images'
+    raw_image_path.mkdir()
+    with open(raw_image_path/'selected.json', 'w') as selected_json:
+        selected_json.write('{\n  "_comment": "see https://visor-tech.github.io/visor-data-schema/"\n}')
+
+    return VSR(vsr_path)

@@ -1,4 +1,4 @@
-# Run at root dir by
+# Run test at root directory with below:
 #   python -m unittest visor/tests/test_core.py
 
 from pathlib import Path
@@ -15,93 +15,127 @@ class TestBase(unittest.TestCase):
         self.path = Path(__file__).parent/'data'/'VISOR001.vsr'
 
 
-class TestOpen(TestBase):
+class TestCore(TestBase):
 
     def setUp(self):
+        super().setUp()
         self.new_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
 
     def tearDown(self):
         if self.new_vsr_path.exists():
             shutil.rmtree(self.new_vsr_path)
 
-    def test_open_read_only(self):
-        vsr = visor.open(self.path, 'r')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.path)
-        self.assertEqual(vsr.mode, 'r')
+    def test_info(self):
+        info = visor.info(self.path)
+        self.assertEqual(info['animal_id'], 'VISOR001')
+        self.assertEqual(info['project_name'], 'VISOR')
+        self.assertEqual(info['species'], 'Mouse')
+        self.assertEqual(info['subproject_name'], 'XXX-XXXX-1X7-3X')
+        self.assertEqual(info['image_types'], ['raw','compr'])
+        self.assertEqual(info['transform_versions'], ['xxx_20250525'])
 
-    def test_open_read_write(self):
-        vsr = visor.open(self.path, 'w')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.path)
-        self.assertEqual(vsr.mode, 'w')
-
-    def test_open_default_model(self):
-        vsr = visor.open(self.path)
-        self.assertEqual(vsr.mode, 'r')
-
-    def test_open_not_vsr(self):
+    def test_info_not_vsr(self):
+        not_vsr_path = Path(str(self.path).replace('.vsr',''))
         with self.assertRaises(ValueError) as context:
-            visor.open(self.path.replace('.vsr',''))
-        self.assertEqual(str(context.exception), f'The path {self.path} does not have .vsr extension.')
+            visor.info(not_vsr_path)
+        self.assertEqual(str(context.exception), f'The path {not_vsr_path} does not have .vsr extension.')
 
-    def test_open_not_exist(self):
+    def test_info_not_exist(self):
         with self.assertRaises(NotADirectoryError) as context:
-            visor.open(self.new_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {self.path} is not a directory.')
+            visor.info(self.new_vsr_path)
+        self.assertEqual(str(context.exception), f'The path {self.new_vsr_path} is not a directory.')
 
-    def test_open_create_new(self):
-        vsr = visor.open(self.new_vsr_path, 'w')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.new_vsr_path)
-        self.assertEqual(vsr.mode, 'w')
+    def test_list_image(self):
+        images = visor.list_image(self.path)
+        self.assertEqual(images, 
+            {
+                'raw': [
+                    {
+                        'name':'slice_1_10x',
+                        'channels':['488','561'],
+                        'resolutions':{
+                            "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                        }
+                    },
+                    {
+                        'name':'slice_1_10x_1',
+                        'channels':['405','640'],
+                        'resolutions':{
+                            "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                        }
+                    }
+                ],
+                'compr': [
+                    {
+                        'name':'xxx_slice_1_10x_20241201',
+                        'channels':['405','640'],
+                        'resolutions':{
+                            "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                        }
+                    }
+                ]
+            }
+        )
 
+    def test_images_by_type_raw(self):
+        images = visor.list_image(self.path, type='raw')
+        self.assertEqual(images, [
+            {
+                'name':'slice_1_10x',
+                'channels':['488','561'],
+                'resolutions':{
+                    "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                }
+            },
+            {
+                'name':'slice_1_10x_1',
+                'channels':['405','640'],
+                'resolutions':{
+                    "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                }
+            }
+        ])
 
-class TestInfo(TestBase):
+    def test_images_by_type_compr(self):
+        images = visor.list_image(self.path, type='compr')
+        self.assertEqual(images, [
+            {
+                'name':'xxx_slice_1_10x_20241201',
+                'channels':['405','640'],
+                'resolutions':{
+                    "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                }
+            }
+        ])
 
-    def setUp(self):
-        super().setUp()
-        self.vsr = visor.open(self.path, 'r')
+    def test_images_by_channel_488(self):
+        images = visor.list_image(self.path, channel='488')
+        self.assertEqual(images,
+            {
+                'raw': [
+                    {
+                        'name':'slice_1_10x',
+                        'channels':['488','561'],
+                        'resolutions':{
+                            "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                        }
+                    },
+                ],
+                'compr': []
+            }
+        )
 
-    def test_get_info(self):
-
-        info = self.vsr.get_info()
-
-        self.assertEqual(info.animal_id, 'VISOR001')
-        self.assertEqual(info.project_name, 'VISOR')
-        self.assertEqual(info.species, 'Mouse')
-        self.assertEqual(info.subproject_name, 'XXX-XXXX-1X7-3X')
-        self.assertEqual(info.transform_versions, [])
-        self.assertEqual(info.image_files, {
-            'raw': [
-                {'path':'slice_1_10x.zarr', 'channels':["488","561"],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]},
-                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ],
-            'compr': [
-                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640'],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ]
-        })
+    def test_images_raw_by_type_and_channel(self):
+        images = visor.list_image(self.path, type='raw', channel='488')
+        self.assertEqual(images, [
+            {
+                'name':'slice_1_10x',
+                'channels':['488','561'],
+                'resolutions':{
+                    "0": [1.0, 1.0, 1.0, 1.0, 1.0]
+                }
+            }
+        ])
 
 
 if __name__ == '__main__':

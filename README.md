@@ -12,72 +12,95 @@ pip install visor-py
 
 #### Import Module
 ```py
-import visor.image as vimg
+import visor
 ```
 
 #### Examples
-- Read .vsr
+- Check VSR Info / Content
 ```py
-import visor.image as vimg
+import visor
+path = 'path/to/VISOR001.vsr'
 
-# Open .vsr file with read-only ('r') mode
-# img is a visor.Image object 
-img = vimg.open_vsr('path/to/VISOR001.vsr', 'r')
-print(img.info)
+# Check vsr info
+visor.info(path)
+
+# List image
+visor.list_image(path)
+## Filter image list
+##   get type/channel from visor.info
+visor.list_image(path, type='raw')
+visor.list_image(path, channel='405')
+visor.list_image(path, type='raw', channel='405')
+
+# List transform
+visor.list_transform(path)
 ```
 
-- Read raw image
+- Read Image
 ```py
-import visor.image as vimg
-img = vimg.open_vsr('path/to/VISOR001.vsr', 'r')
+import visor
+path = 'path/to/VISOR001.vsr'
 
 # Read raw image of slice_1_10x from zarr file
-# arr is a visor.Array object
-arr = img.read(img_type='raw',
-               zarr_file='slice_1_10x.zarr',
-               resolution=0)
-print(arr.info)
+# arr is a zarr.Array with 5-dimensions: vs,ch,z,y,x
+# see more on array format at https://visor-tech.github.io/visor-data-schema
+arr = visor.read(path
+  type='raw',
+  name='slice_1_10x',
+  resolution=0
+)
+
+# Read visor_stack image by label
+# s1_arr is a zarr.Array with 5-dimensions: vs=1,ch,z,y,x
+s1_arr = visor.read(path
+  type='raw',
+  name='slice_1_10x',
+  resolution=0,
+  stack='stack_1'
+)
+
+# Read channel by wavelength by label
+# c488_arr is a zarr.Array with 5-dimensions: vs,ch=1,z,y,x
+c488_arr = visor.read(path
+  type='raw',
+  name='slice_1_10x',
+  resolution=0,
+  channel='488'
+)
+
+# Read visor_stack and channel by label
+# s1c488_arr is a zarr.Array with 5-dimensions: vs=1,ch=1,z,y,x
+s1c488_arr = visor.read(path
+  type='raw',
+  name='slice_1_10x',
+  resolution=0,
+  stack='stack_1',
+  channel='488'
+)
 ```
 
-- Read arrays by named visor_stacks or channels
+- Use numpy or dask
 ```py
-import visor.image as vimg
-img = vimg.open_vsr('path/to/VISOR001.vsr', 'r')
-arr = img.read(img_type='raw',
-               zarr_file='slice_1_10x.zarr',
-               resolution=0)
+import visor
+import numpy as np
+import dask.array as da
 
-# Read visor_stacks by label
-# s1_array is a numpy.ndarray, dimensions: vs=1,ch,z,y,x
-s1_array = arr.read(stack='stack_1')
-print(f's1_array shape: {s1_array.shape}, dimensions: vs=1,ch,z,y,x')
+# First read out zarr.Array
+arr = visor.read('path/to/VISOR001.vsr',
+  type='raw',
+  name='slice_1_10x',
+  resolution=0
+)
 
-# Read channel by wavelength
-# c488_array is a numpy.ndarray, dimensions: vs,ch=1,z,y,x
-c488_array = arr.read(channel='488')
-print(f'c488_array shape: {c488_array.shape}, dimensions: vs,ch=1,z,y,x')
+# Convert to numpy.ndarray
+# below code reads the entire zarr.Array into memory as a numpy.ndarray
+# Note: zarr.Array and dask.array are lazy loading, 
+#       that are recommended for large arrays
+np_arr = arr[:]
 
-# Read visor_stack and channel
-# s1c488_array is a numpy.ndarray, dimensions: vs=1,ch=1,z,y,x
-s1c488_array = arr.read(stack='stack_1', channel='488')
-print(f's1c488_array shape: {s1c488_array.shape}, dimensions: vs=1,ch=1,z,y,x')
-```
-
-- Read array by index
-```py
-import visor.image as vimg
-img = vimg.open_vsr('path/to/VISOR001.vsr', 'r')
-arr = img.read(img_type='raw',
-               zarr_file='slice_1_10x.zarr',
-               resolution=0)
-
-# Read by index
-# the_array is a numpy.ndarray
-the_array = arr.array
-print(f'the_array shape: {the_array.shape}, dimensions: vs,ch,z,y,x')
-# subarr is a numpy.ndarray
-subarr = the_array[0,0,:,:,:]
-print(f'subarr shape: {subarr.shape}, dimensions: z,y,x')
+# Convert to dask.array
+# below code convert a zarr.Array to a dask.array
+da_arr = da.from_array(arr, chunks=arr.chunks)
 ```
 
 - Write .vsr

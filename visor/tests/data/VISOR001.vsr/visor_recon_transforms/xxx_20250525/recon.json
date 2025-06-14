@@ -5,7 +5,7 @@
   "keywords": ["SimpleITK","Elastix"],
   "slices": [
       {
-          "path": "slice_1_10x",
+          "name": "slice_1_10x",
           "transforms": ["raw_to_ortho","raw_to_brain"]
       }
   ]
