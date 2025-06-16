@@ -16,7 +16,7 @@ import visor
 ```
 
 #### Examples
-- Check VSR Info / Content
+- Check VSR Info / List Content
 ```py
 import visor
 path = 'path/to/VISOR001.vsr'
@@ -34,73 +34,76 @@ visor.list_image(path, type='raw', channel='405')
 
 # List transform
 visor.list_transform(path)
+visor.list_transform(path, version='xxx_20250525')
 ```
 
-- Read Image
+- Load Image
 ```py
 import visor
 path = 'path/to/VISOR001.vsr'
 
-# Read raw image of slice_1_10x from zarr file
+# Load raw image of slice_1_10x from zarr file
 # arr is a zarr.Array with 5-dimensions: vs,ch,z,y,x
 # see more on array format at https://visor-tech.github.io/visor-data-schema
-arr = visor.read(path
+arr = visor.load_image(path
   type='raw',
   name='slice_1_10x',
   resolution=0
 )
 
-# Read visor_stack image by label
+# Load visor_stack image by label
 # s1_arr is a zarr.Array with 5-dimensions: vs=1,ch,z,y,x
-s1_arr = visor.read(path
+s1_arr = visor.load_image(path
   type='raw',
   name='slice_1_10x',
   resolution=0,
   stack='stack_1'
 )
 
-# Read channel by wavelength by label
+# Load channel by wavelength by label
 # c488_arr is a zarr.Array with 5-dimensions: vs,ch=1,z,y,x
-c488_arr = visor.read(path
+c488_arr = visor.load_image(path
   type='raw',
   name='slice_1_10x',
   resolution=0,
   channel='488'
 )
 
-# Read visor_stack and channel by label
+# Load visor_stack and channel by label
 # s1c488_arr is a zarr.Array with 5-dimensions: vs=1,ch=1,z,y,x
-s1c488_arr = visor.read(path
+s1c488_arr = visor.load_image(path
   type='raw',
   name='slice_1_10x',
   resolution=0,
   stack='stack_1',
   channel='488'
 )
-```
-
-- Use numpy or dask
-```py
-import visor
-import numpy as np
-import dask.array as da
-
-# First read out zarr.Array
-arr = visor.read('path/to/VISOR001.vsr',
-  type='raw',
-  name='slice_1_10x',
-  resolution=0
-)
 
 # Convert to numpy.ndarray
 # below code reads the entire zarr.Array into memory as a numpy.ndarray
-# Note: zarr.Array and dask.array are lazy loading, 
+# Note: zarr.Array and dask.array.Array are lazy loading, 
 #       that are recommended for large arrays
 np_arr = arr[:]
 
-# Convert to dask.array
-# below code convert a zarr.Array to a dask.array
+# Convert to dask.array.Array
+# below code convert a zarr.Array to a dask.array.Array
+import dask.array as da
 da_arr = da.from_array(arr, chunks=arr.chunks)
+```
+
+- Load Transform
+```py
+import visor
+path = 'path/to/VISOR001.vsr'
+
+# Load slice_1_10x's raw_to_ortho transform
+# transform type and format could be various
+# see more on transform type / format at https://visor-tech.github.io/visor-data-schema
+transform = visor.load_transform(path
+  version='xxx_20250525',
+  slice_name='slice_1_10x',
+  transform_name='raw_to_ortho'
+)
 ```
 
 - Write .vsr

@@ -1,5 +1,8 @@
 from pathlib import Path
 import json
+import zarr
+import zarrs
+zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 
 class _VSR:
 
@@ -84,10 +87,33 @@ class _VSR:
 
         return resolutions
 
+    def transforms(self):
+        """
+        Collect transforms in .vsr file
+
+        Returns:
+            Collection of transform descriptions
+        """
+        transforms = {}
+
+        dir = self.path/f'visor_recon_transforms'
+        for version in self.transform_versions:
+            with open(dir/version/'recon.json') as rf:
+                recon_info = json.load(rf)
+            transforms[version] = {
+                "spaces": recon_info['spaces'],
+                "slices": recon_info['slices']
+            }
+
+        return transforms
+
 
 def info(path:str|Path):
     """
     Get information of the VSR file
+
+    Parameters:
+        path: path to the .vsr file
 
     Returns:
         JSON like object
@@ -105,13 +131,15 @@ def info(path:str|Path):
 
     return info
 
+
 def list_image(path:str|Path, type=None, channel=None):
     """
-    List image, optionally by filters
+    List images, optionally by filters
 
     Parameters:
-        type: the image type, see visor.info()['image_types']
-        channel: the channel wavelength
+        path:    path to the .vsr file
+        type:    image type, see visor.info()['image_types']
+        channel: channel wavelength
 
     Returns:
         Collection of image descriptions
@@ -128,8 +156,26 @@ def list_image(path:str|Path, type=None, channel=None):
 
     return images
 
-def list_transform():
-    pass
+
+def list_transform(path:str|Path, version=None):
+    """
+    List transforms, optionally by filters
+
+    Parameters:
+        path:    path to the .vsr file
+        version: reconstruction version, see visor.info()['transform_versions']
+
+    Returns:
+        Collection of transform descriptions
+    """
+    vsr = _VSR(Path(path))
+    transforms = vsr.transforms()
+
+    if version:
+        transforms = transforms[version]
+
+    return transforms    
+
 
 def create(path:str):
     """

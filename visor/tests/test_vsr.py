@@ -1,5 +1,5 @@
 # Run test at root directory with below:
-#   python -m unittest visor/tests/test_core.py
+#   python -m unittest visor/tests/test_vsr.py
 
 from pathlib import Path
 import unittest
@@ -15,15 +15,15 @@ class TestBase(unittest.TestCase):
         self.path = Path(__file__).parent/'data'/'VISOR001.vsr'
 
 
-class TestCore(TestBase):
+class TestVSR(TestBase):
 
     def setUp(self):
         super().setUp()
-        self.new_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
+        self.another_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
 
     def tearDown(self):
-        if self.new_vsr_path.exists():
-            shutil.rmtree(self.new_vsr_path)
+        if self.another_vsr_path.exists():
+            shutil.rmtree(self.another_vsr_path)
 
     def test_info(self):
         info = visor.info(self.path)
@@ -42,8 +42,8 @@ class TestCore(TestBase):
 
     def test_info_not_exist(self):
         with self.assertRaises(NotADirectoryError) as context:
-            visor.info(self.new_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {self.new_vsr_path} is not a directory.')
+            visor.info(self.another_vsr_path)
+        self.assertEqual(str(context.exception), f'The path {self.another_vsr_path} is not a directory.')
 
     def test_list_image(self):
         images = visor.list_image(self.path)
@@ -77,7 +77,7 @@ class TestCore(TestBase):
             }
         )
 
-    def test_images_by_type_raw(self):
+    def test_list_image_by_type_raw(self):
         images = visor.list_image(self.path, type='raw')
         self.assertEqual(images, [
             {
@@ -96,7 +96,7 @@ class TestCore(TestBase):
             }
         ])
 
-    def test_images_by_type_compr(self):
+    def test_list_image_by_type_compr(self):
         images = visor.list_image(self.path, type='compr')
         self.assertEqual(images, [
             {
@@ -108,7 +108,7 @@ class TestCore(TestBase):
             }
         ])
 
-    def test_images_by_channel_488(self):
+    def test_list_image_by_channel_488(self):
         images = visor.list_image(self.path, channel='488')
         self.assertEqual(images,
             {
@@ -125,7 +125,7 @@ class TestCore(TestBase):
             }
         )
 
-    def test_images_raw_by_type_and_channel(self):
+    def test_list_image_raw_by_type_and_channel(self):
         images = visor.list_image(self.path, type='raw', channel='488')
         self.assertEqual(images, [
             {
@@ -136,6 +136,36 @@ class TestCore(TestBase):
                 }
             }
         ])
+
+    def test_list_transform(self):
+        transforms = visor.list_transform(self.path)
+        self.assertEqual(transforms,
+            {
+                'xxx_20250525': {
+                    "spaces": ["raw","ortho","brain"],
+                    "slices": [
+                        {
+                            "name": "slice_1_10x",
+                            "transforms": ["raw_to_ortho","raw_to_brain"]
+                        }
+                    ]
+                }
+            }
+        )
+
+    def test_list_transform_by_version(self):
+        transforms = visor.list_transform(self.path, version='xxx_20250525')
+        self.assertEqual(transforms,
+            {
+                "spaces": ["raw","ortho","brain"],
+                "slices": [
+                    {
+                        "name": "slice_1_10x",
+                        "transforms": ["raw_to_ortho","raw_to_brain"]
+                    }
+                ]
+            }
+        )
 
 
 if __name__ == '__main__':

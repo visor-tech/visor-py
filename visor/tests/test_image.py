@@ -1,374 +1,51 @@
-# Run at root dir by
-#   python -m unittest visor/image/tests/test_core.py
+# Run test at root directory with below:
+#   python -m unittest visor/tests/test_image.py
 
 from pathlib import Path
 import unittest
 import shutil
+import visor
 import zarr
-import numpy as np
-from visor import image as vimg
+import numpy
+import dask.array as da
 
 class TestBase(unittest.TestCase):
 
     def setUp(self):
-
-        # Test Data: validated with https://ome.github.io/ome-ngff-validator
-        # simply use ome_zarr command line tool as below:
-        #   $ ome_zarr view visor/image/tests/data/VISOR001/visor_raw_images/slice_1_10x.zarr
         self.path = Path(__file__).parent/'data'/'VISOR001.vsr'
 
 
-class TestCore(TestBase):
-
-    def test_open_read_only(self):
-        vsr = visor.open(self.path, 'r')
-        self.assertIsInstance(vsr, visor.core.Vsr)
-
-    def test_open_read_write(self):
-        vsr = visor.open(self.path, 'w')
-        self.assertIsInstance(vsr, visor.core.Vsr)
-
-class TestOpen(TestBase):
+class TestImage(TestBase):
 
     def setUp(self):
         super().setUp()
-        self.new_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
+        self.another_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
 
     def tearDown(self):
-        if self.new_vsr_path.exists():
-            shutil.rmtree(self.new_vsr_path)
-
-    def test_open_read_only(self):
-        vsr = visor.open_vsr(self.path, 'r')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.path)
-        self.assertEqual(vsr.mode, 'r')
-
-    def test_open_read_write(self):
-        vsr = visor.open_vsr(self.path, 'w')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.path)
-        self.assertEqual(vsr.mode, 'w')
-
-    def test_open_default_model(self):
-        vsr = visor.open_vsr(self.path)
-        self.assertEqual(vsr.mode, 'r')
-
-    def test_open_not_vsr(self):
-        not_vsr_path = Path(str(self.path).replace('.vsr',''))
-        with self.assertRaises(ValueError) as context:
-            visor.open_vsr(not_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {not_vsr_path} does not have .vsr extension.')
-
-    def test_open_not_exist(self):
-        with self.assertRaises(NotADirectoryError) as context:
-            visor.open_vsr(self.new_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {self.new_vsr_path} is not a directory.')
-
-    def test_open_create_new(self):
-        vsr = visor.open_vsr(self.new_vsr_path, 'w')
-        self.assertIsInstance(vsr, visor.core.VSR)
-        self.assertEqual(vsr.path, self.new_vsr_path)
-        self.assertEqual(vsr.mode, 'w')
-
-class TestInfo(TestBase):
-
-    def setUp(self):
-        super().setUp()
-        self.vsr = visor.open(self.path, 'r')
-
-    def test_info(self):
-
-        info = self.vsr.info()
-
-        self.assertEqual(info.animal_id, 'VISOR001')
-        self.assertEqual(info.project_name, 'VISOR')
-        self.assertEqual(info.species, 'Mouse')
-        self.assertEqual(info.subproject_name, 'XXX-XXXX-1X7-3X')
-        self.assertEqual(info.transform_versions, [])
-        self.assertEqual(info.image_files, {
-            'raw': [
-                {'name':'slice_1_10x.zarr', 'channels':["488","561"],
-                 'resolutions':{
-                     "0": [1.0, 1.0, 1.0]
-                  }
-                 },
-                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ],
-            'compr': [
-                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640'],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ]
-        })
-
-
-
-
-class TestImageReadOnly(TestBase):
-
-    def setUp(self):
-
-        super().setUp()
-        self.img = visor.open_vsr(self.path, 'r')
-
-        self.zarr_file = 'slice_1_10x.zarr'
-        self.resolution = 0
-
-
-    def test_image_list(self):
-
-        self.assertEqual(self.img.list(), {
-            'raw': [
-                {'path':'slice_1_10x.zarr', 'channels':["488","561"],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]},
-                {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ],
-            'compr': [
-                {'path': 'xxx_slice_1_10x_20241201.zarr', 'channels': ['405', '640'],
-                 'resolutions':[{
-                     "path": "0",
-                     "coordinateTransformations": [{
-                         "type": "scale",
-                         "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                     }]}
-                 ]}
-            ]
-        })
-        self.assertEqual(self.img.list('raw'), [
-            {'path':'slice_1_10x.zarr', 'channels':["488","561"],
-                'resolutions':[{
-                    "path": "0",
-                    "coordinateTransformations": [{
-                        "type": "scale",
-                        "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                    }]}
-                ]},
-            {'path':'slice_1_10x_1.zarr', 'channels':["405","640"],
-                'resolutions':[{
-                    "path": "0",
-                    "coordinateTransformations": [{
-                        "type": "scale",
-                        "scale": [1.0, 1.0, 1.0, 1.0, 1.0]
-                    }]}
-                ]}
-        ])
-        self.assertEqual(self.img.list('projn'), {})
-
-
-    def test_image_read(self):
-
-        arr = self.img.read('raw',self.zarr_file,0)
-
-        self.assertIsInstance(arr, visor.core.Array)
-        self.assertEqual(arr.info['zarr_format'], 3)
-        self.assertIn('attributes', arr.info)
-        self.assertIn('ome', arr.info['attributes'])
-        self.assertIn('visor', arr.info['attributes'])
-        self.assertEqual(arr.info['attributes']['ome']['version'], '0.5')
-        self.assertIn('multiscales', arr.info['attributes']['ome'])
-        self.assertIn('visor_stacks', arr.info['attributes']['visor'])
-        self.assertIn('channels', arr.info['attributes']['visor'])
-        self.assertEqual(arr.channel_map, {'488':0, '561':1})
-        self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
-        self.assertEqual(arr.array.shape, (2,2,4,4,4))
-
-    def test_image_write_exception(self):
-
-        arr = self.img.read('raw',self.zarr_file,resolution=self.resolution)
-        with self.assertRaises(PermissionError) as context:
-            self.img.write(arr,'raw',self.zarr_file,0,{},{},(),())
-        self.assertEqual(str(context.exception), '"write" method is only available in "w" mode.')
-
-
-class TestArrayRead(TestBase):
-
-    def setUp(self):
-
-        super().setUp()
-        img = visor.open_vsr(self.path, 'w')
-        self.arr = img.read('raw','slice_1_10x.zarr',0)
-
-
-    def test_array_read(self):
-
-        arr = self.arr.read()
-        self.assertEqual(arr.shape, (2,2,4,4,4))
-
-
-    def test_array_read_channel(self):
-
-        arr = self.arr.read(channel='488')
-        self.assertEqual(arr.shape, (2,1,4,4,4))
-
-
-    def test_array_read_stack(self):
-
-        arr = self.arr.read(stack='stack_1')
-        self.assertEqual(arr.shape, (1,2,4,4,4))
-
-
-    def test_array_read_channel_and_stack(self):
-
-        arr = self.arr.read(channel='488',stack='stack_1')
-        self.assertEqual(arr.shape, (1,1,4,4,4))
-
-
-    def test_array_read_channel_not_exist(self):
-
-        with self.assertRaises(KeyError) as context:
-            self.arr.read(channel='777')
-        self.assertEqual(str(context.exception), '"channel 777 does not exist, valid channels: [\'488\', \'561\']"')
-
-
-class TestImageWrite(TestBase):
-
-    def setUp(self):
-
-        super().setUp()
-        self.src_img_type = 'raw'
-        self.src_img_file = 'slice_1_10x'
-
-        self.dst_img_type = 'raw'
-        self.dst_img_file = 'slice_1_10x'
-        
-        self.resolution = 0
-
-        src_img = visor.open_vsr(self.path, 'r')
-        self.src_img_info = src_img.info
-        src_arr = src_img.read(self.src_img_type,
-                                f'{self.src_img_file}.zarr',
-                                self.resolution)
-        self.arr = np.random.randint(0,255,size=(2,2,4,4,4), dtype='uint16')
-        self.arr_info = src_arr.info['attributes']
-        
-        self.dst_path = self.path.parent/'tmp.vsr'
-
-
-    def tearDown(self):
-
-        if self.dst_path.exists():
-            shutil.rmtree(self.dst_path)
-
-
-    def test_image_write(self):
-        
-        dst_img = visor.open_vsr(self.dst_path, 'w')
-        dst_img.write(self.arr,
-                      self.dst_img_type,
-                      self.dst_img_file,
-                      self.resolution,
-                      self.src_img_info,
-                      self.arr_info,
-                      chunk_size=(1,1,2,2,2),
-                      shard_size=(1,1,4,4,4),
-                      selected=[{'path':'slice_1_10x.zarr','channels':['640']}])
-        arr = dst_img.read(self.dst_img_type,
-                           f'{self.dst_img_file}.zarr',
-                           0)
-        self.assertIsInstance(arr, visor.core.Array)
-        self.assertEqual(arr.info['zarr_format'], 3)
-        self.assertIn('attributes', arr.info)
-        self.assertIn('ome', arr.info['attributes'])
-        self.assertIn('visor', arr.info['attributes'])
-        self.assertEqual(arr.info['attributes']['ome']['version'], '0.5')
-        self.assertIn('multiscales', arr.info['attributes']['ome'])
-        self.assertIn('visor_stacks', arr.info['attributes']['visor'])
-        self.assertIn('channels', arr.info['attributes']['visor'])
-        self.assertEqual(arr.channel_map, {'488':0, '561':1})
-        self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
-        self.assertEqual(arr.array.shape, (2,2,4,4,4))
-
-    def test_image_write_compress(self):
-        dst_img = visor.open_vsr(self.dst_path, 'w')
-        compressor = zarr.codecs.BloscCodec(cname='zstd', clevel=5)
-        dst_img.write(self.arr,
-                      self.dst_img_type,
-                      self.dst_img_file,
-                      self.resolution,
-                      self.src_img_info,
-                      self.arr_info,
-                      chunk_size=(1,1,2,2,2),
-                      shard_size=(1,1,4,4,4),
-                      selected=[{'path':'slice_1_10x.zarr','channels':['640']}],
-                      compressor=compressor)
-        arr = dst_img.read(self.dst_img_type,
-                           f'{self.dst_img_file}.zarr',
-                           0)
-        self.assertEqual((arr.array - self.arr).any(), False)
-
-# class TestImageUpdate(TestBase):
-
-#     def setUp(self):
-
-#         super().setUp()
-#         self.src_img_type = 'raw'
-#         self.src_img_file = 'slice_1_10x'
-
-#         self.dst_img_type = 'icorr'
-#         self.dst_img_file = 'slice_1_10x'
-        
-#         self.resolution = 0
-
-#         src_img = visor.open_vsr(self.path, 'r')
-#         self.src_img_info = src_img.info
-#         self.arr = src_img.read(self.src_img_type,
-#                                 f'{self.src_img_file}.zarr',
-#                                 self.resolution)
-        
-#         self.dst_path = self.path/'visor_icorr_images'
-
-
-#     def tearDown(self):
-
-#         if self.dst_path.exists():
-#             shutil.rmtree(self.dst_path)
-
-
-#     def test_image_write(self):
-        
-#         dst_img = visor.open_vsr(self.dst_path, 'w')
-#         dst_img.write(self.arr.array,
-#                       self.dst_img_type,
-#                       self.dst_img_file,
-#                       self.resolution,
-#                       self.src_img_info,
-#                       self.arr.info)
-#         arr = dst_img.read(self.dst_img_type,
-#                            f'{self.dst_img_file}.zarr',
-#                            0)
-#         self.assertIsInstance(arr, visor.core.Array)
-#         self.assertIn('multiscales', arr.info)
-#         self.assertIn('visor_stacks', arr.info)
-#         self.assertIn('channels', arr.info)
-#         self.assertEqual(arr.channel_map, {'488':0, '561':1})
-#         self.assertEqual(arr.stack_map, {'stack_1':0, 'stack_2':1})
-#         self.assertEqual(arr.array.shape, (2,2,4,4,4))
+        if self.another_vsr_path.exists():
+            shutil.rmtree(self.another_vsr_path)
+
+    def test_load_image(self):
+        arr = visor.load_image(self.path,
+            type='raw',
+            name='slice_1_10x',
+            resolution='0'
+        )
+        self.assertIsInstance(arr, zarr.Array)
+        self.assertEqual(arr.ndim, 5)
+        self.assertEqual(arr.dtype, 'uint16')
+        self.assertEqual(arr.shape, (2, 2, 4, 4, 4))
+        self.assertEqual(arr.chunks, (1, 1, 2, 2, 2))
+        self.assertEqual(arr.shards, (1, 1, 4, 4, 4))
+        arr_compressor_info = arr.compressors[0].to_dict()['configuration']
+        self.assertEqual(arr_compressor_info['cname'], 'zstd')
+        self.assertEqual(arr_compressor_info['clevel'], 5)
+
+        np_arr = arr[:]
+        self.assertIsInstance(np_arr, numpy.ndarray)
+
+        da_arr = da.from_array(arr, chunks=arr.chunks)
+        self.assertIsInstance(da_arr, da.Array)
 
 
 if __name__ == '__main__':
