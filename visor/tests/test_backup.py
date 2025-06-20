@@ -85,7 +85,7 @@ class TestInfo(TestBase):
         self.assertEqual(info.project_name, 'VISOR')
         self.assertEqual(info.species, 'Mouse')
         self.assertEqual(info.subproject_name, 'XXX-XXXX-1X7-3X')
-        self.assertEqual(info.transform_versions, [])
+        self.assertEqual(info.recon_versions, [])
         self.assertEqual(info.image_files, {
             'raw': [
                 {'name':'slice_1_10x.zarr', 'channels':["488","561"],

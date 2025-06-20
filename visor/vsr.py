@@ -11,7 +11,7 @@ class _VSR:
         Constructor of VSR
 
         Parameters:
-            path : the .vsr file path
+            path : path to the .vsr file
         """
         if path.suffix != '.vsr':
             raise ValueError(f'The path {path} does not have .vsr extension.')
@@ -19,9 +19,9 @@ class _VSR:
             raise NotADirectoryError(f'The path {path} is not a directory.')
         self.path = path
         self.image_types = [d.name.split('_')[1] for d in self.path.glob('visor_*_images')]
-        self.transform_versions = []
+        self.recon_versions = []
         if (self.path/'visor_recon_transforms').is_dir():
-            self.transform_versions = \
+            self.recon_versions = \
                 [i.name for i in (path/'visor_recon_transforms').iterdir() if i.is_dir()]
 
     def images(self):
@@ -56,7 +56,7 @@ class _VSR:
         Private method to get channel list from metadata file
 
         Parameters:
-            meta_file : the metadata file path
+            meta_file : path to the metadata file
 
         Returns:
             List of channel wavelengths
@@ -72,7 +72,7 @@ class _VSR:
         Private method to get resolutions list from metadata file
 
         Parameters:
-            meta_file : the metadata file path
+            meta_file : path to the metadata file
 
         Returns:
             List of resolutions
@@ -97,7 +97,7 @@ class _VSR:
         transforms = {}
 
         dir = self.path/f'visor_recon_transforms'
-        for version in self.transform_versions:
+        for version in self.recon_versions:
             with open(dir/version/'recon.json') as rf:
                 recon_info = json.load(rf)
             transforms[version] = {
@@ -127,7 +127,7 @@ def info(path:str|Path):
         info = json.load(f)
 
     info['image_types'] = vsr.image_types
-    info['transform_versions'] = vsr.transform_versions
+    info['recon_versions'] = vsr.recon_versions
 
     return info
 
@@ -163,7 +163,7 @@ def list_transform(path:str|Path, version=None):
 
     Parameters:
         path:    path to the .vsr file
-        version: reconstruction version, see visor.info()['transform_versions']
+        version: reconstruction version, see visor.info()['recon_versions']
 
     Returns:
         Collection of transform descriptions

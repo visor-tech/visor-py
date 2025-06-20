@@ -32,7 +32,7 @@ class TestVSR(TestBase):
         self.assertEqual(info['species'], 'Mouse')
         self.assertEqual(info['subproject_name'], 'XXX-XXXX-1X7-3X')
         self.assertEqual(info['image_types'], ['raw','compr'])
-        self.assertEqual(info['transform_versions'], ['xxx_20250525'])
+        self.assertEqual(info['recon_versions'], ['xxx_20250525'])
 
     def test_info_not_vsr(self):
         not_vsr_path = Path(str(self.path).replace('.vsr',''))

@@ -1,9 +1,9 @@
 from .vsr import info, list_image, list_transform
-from .image import load_image
+from .image import Image
 
 __all__ = [
   'info',
   'list_image',
   'list_transform',
-  'load_image'
+  'Image',
 ]
