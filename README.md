@@ -66,26 +66,27 @@ arr = v_img_r.load(resolution=0)
 np_arr = arr[:]
 
 # Or slice zarr.Array like numpy
-# sub_arr is a numpy.ndarray with 3-dimensions: z,y,x
-sub_np_arr = arr[1,1,:,:,:]
+# sub_arr is a numpy.ndarray with 5-dimensions: vs=1,ch=1,z,y,x
+# Note: The zarrs.py module requires dimensions to be preserved.
+sub_np_arr = arr[:1,:1,:,:,:]
 
 # Load array with visor_stack filter by label 'stack_1'
 # s1_arr is a numpy.ndarray with 5-dimensions: vs=1,ch,z,y,x
-s1_arr = v_img_r.load_stack(
+s1_arr = v_img_r.load(
     resolution=0,
     stack='stack_1'
 )
 
 # Load array with channel filter by label '488'
 # c488_arr is a numpy.ndarray with 5-dimensions: vs,ch=1,z,y,x
-c488_arr = v_img_r.load_channel(
+c488_arr = v_img_r.load(
     resolution=0,
     channel='488'
 )
 
 # Load array of visor_stack and channel filter by label
 # s1c488_arr is a numpy.ndarray with 5-dimensions: vs=1,ch=1,z,y,x
-s1c488_arr = v_img_r.load_stack_channel(
+s1c488_arr = v_img_r.load(
     resolution=0,
     stack='stack_1',
     channel='488'
@@ -133,7 +134,7 @@ v_img_w = visor.Image(
 v_img_w.save(new_arr)
 
 # Save a visor_stack
-# Note: we preserve the visor_stack(vs) dimension here for consistency
+# Note: The zarrs.py module requires dimensions to be preserved.
 s1_new_arr = new_arr[:1,:,:,:,:]
 v_img_w.save(s1_new_arr, stack='stack_1')
 

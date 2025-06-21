@@ -50,6 +50,8 @@ class Image:
 
         self.path = image_path
         self.mode = mode
+        with open(image_path/'zarr.json', 'r') as zj:
+            self.attrs = json.load(zj)['attributes']        
 
     def load(self, resolution:str, stack:str=None, channel:str=None):
         """
@@ -64,9 +66,45 @@ class Image:
             zarr.Array
         """
 
-        image_array = self.store[resolution]
+        image_array = self.store[str(resolution)]
+
+        if stack and channel:
+            s_idx = self._label_to_index('stack', stack)
+            c_idx = self._label_to_index('channel', channel)
+            return image_array[s_idx:s_idx+1,c_idx:c_idx+1,:,:,:]
+        elif stack:
+            s_idx = self._label_to_index('stack', stack)
+            return image_array[s_idx:s_idx+1,:,:,:,:]
+        elif channel:
+            c_idx = self._label_to_index('channel', channel)
+            return image_array[:,c_idx:c_idx+1,:,:,:]
 
         return image_array
     
+    def _label_to_index(self, filter:str, label:str):
+        """
+        Get index from label of filter stack/channel
+
+        Parameters:
+            filter: stack or channel
+            label:  label of named stack or channel
+
+        Returns:
+            int
+        """
+        v_meta = self.attrs['visor']
+        if 'stack' == filter:
+            for s in v_meta['visor_stacks']:
+                if s['label'] == label:
+                    return s['index']
+            raise ValueError(f'The visor_stack {label} does not exist.')
+        elif 'channel' == filter:
+            for s in v_meta['channels']:
+                if s['wavelength'] == label:
+                    return s['index']
+            raise ValueError(f'The channel {label} does not exist.')
+        else:
+            raise ValueError(f'Invalid filter {filter}. Must be stack or channel')
+
     def save(self, resolution:str, stack:str=None, channel:str=None):
         pass

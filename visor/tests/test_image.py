@@ -41,6 +41,10 @@ class TestImage(TestBase):
         self.assertEqual(v_img_r.path, self.image_path)
         self.assertEqual(v_img_r.mode, 'r')
         self.assertIsInstance(v_img_r.store, zarr.Group)
+        self.assertIn('ome', v_img_r.attrs)
+        self.assertIn('visor', v_img_r.attrs)
+        self.assertIn('visor_stacks', v_img_r.attrs['visor'])
+        self.assertIn('channels', v_img_r.attrs['visor'])
 
     def test_init_default_mode(self):
         v_img_r = visor.Image(
@@ -104,34 +108,72 @@ class TestImage(TestBase):
             )
         self.assertEqual(str(context.exception), f'The image path {self.image_path} already exist.')
 
+class TestImageMethods(TestImage):
 
-    # def test_open_create_new(self):
-    #     vsr = visor.open_vsr(self.new_vsr_path, 'w')
-    #     self.assertIsInstance(vsr, visor.core.VSR)
-    #     self.assertEqual(vsr.path, self.new_vsr_path)
-    #     self.assertEqual(vsr.mode, 'w')
+    def setUp(self):
+        super().setUp()
+        self.img = visor.Image(
+            self.path,
+            type=self.type,
+            name=self.name,
+            mode='r',
+        )
 
-    # def test_load_image(self):
-    #     arr = visor.load_image(self.path,
-    #         type=self.type,
-    #         name=self.name,
-    #         resolution='0'
-    #     )
-    #     self.assertIsInstance(arr, zarr.Array)
-    #     self.assertEqual(arr.ndim, 5)
-    #     self.assertEqual(arr.dtype, 'uint16')
-    #     self.assertEqual(arr.shape, (2, 2, 4, 4, 4))
-    #     self.assertEqual(arr.chunks, (1, 1, 2, 2, 2))
-    #     self.assertEqual(arr.shards, (1, 1, 4, 4, 4))
-    #     arr_compressor_info = arr.compressors[0].to_dict()['configuration']
-    #     self.assertEqual(arr_compressor_info['cname'], 'zstd')
-    #     self.assertEqual(arr_compressor_info['clevel'], 5)
+    def tearDown(self):
+        if self.another_vsr_path.exists():
+            shutil.rmtree(self.another_vsr_path)
 
-    #     np_arr = arr[:]
-    #     self.assertIsInstance(np_arr, numpy.ndarray)
+    def test_load(self):
 
-    #     da_arr = da.from_array(arr, chunks=arr.chunks)
-    #     self.assertIsInstance(da_arr, da.Array)
+        arr = self.img.load(resolution='0')
+        self.assertIsInstance(arr, zarr.Array)
+        self.assertEqual(arr.ndim, 5)
+        self.assertEqual(arr.dtype, 'uint16')
+        self.assertEqual(arr.shape, (2, 2, 4, 4, 4))
+        self.assertEqual(arr.chunks, (1, 1, 2, 2, 2))
+        self.assertEqual(arr.shards, (1, 1, 4, 4, 4))
+        arr_compressor_info = arr.compressors[0].to_dict()['configuration']
+        self.assertEqual(arr_compressor_info['cname'], 'zstd')
+        self.assertEqual(arr_compressor_info['clevel'], 5)
+
+        np_arr = arr[:]
+        self.assertIsInstance(np_arr, numpy.ndarray)
+        self.assertEqual(np_arr.ndim, 5)
+        self.assertEqual(np_arr.shape, (2, 2, 4, 4, 4))
+        sub_np_arr = arr[:1,:1,:,:,:]
+        self.assertEqual(sub_np_arr.ndim, 5)
+        self.assertEqual(sub_np_arr.shape, (1, 1, 4, 4, 4))
+
+        da_arr = da.from_array(arr, chunks=arr.chunks)
+        self.assertIsInstance(da_arr, da.Array)
+
+    def test_load_filter_stack(self):
+        s1_arr = self.img.load(
+            resolution='0',
+            stack='stack_1'
+        )
+        self.assertIsInstance(s1_arr, numpy.ndarray)
+        self.assertEqual(s1_arr.ndim, 5)
+        self.assertEqual(s1_arr.shape, (1, 2, 4, 4, 4))
+
+    def test_load_filter_channel(self):
+        c488_arr = self.img.load(
+            resolution='0',
+            channel='488'
+        )
+        self.assertIsInstance(c488_arr, numpy.ndarray)
+        self.assertEqual(c488_arr.ndim, 5)
+        self.assertEqual(c488_arr.shape, (2, 1, 4, 4, 4))
+
+    def test_load_filter_stack_and_channel(self):
+        s1c488_arr = self.img.load(
+            resolution='0',
+            stack='stack_1',
+            channel='488'
+        )
+        self.assertIsInstance(s1c488_arr, numpy.ndarray)
+        self.assertEqual(s1c488_arr.ndim, 5)
+        self.assertEqual(s1c488_arr.shape, (1, 1, 4, 4, 4))
 
 
 if __name__ == '__main__':
