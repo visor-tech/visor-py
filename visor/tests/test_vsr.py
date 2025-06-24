@@ -12,7 +12,7 @@ class TestBase(unittest.TestCase):
         # Test Data: validated with https://ome.github.io/ome-ngff-validator
         # simply use ome_zarr command line tool as below:
         #   $ ome_zarr view visor/image/tests/data/VISOR001/visor_raw_images/slice_1_10x.zarr
-        self.path = Path(__file__).parent/'data'/'VISOR001.vsr'
+        self.vsr_path = Path(__file__).parent/'data'/'VISOR001.vsr'
 
 
 class TestVSR(TestBase):
@@ -26,7 +26,7 @@ class TestVSR(TestBase):
             shutil.rmtree(self.another_vsr_path)
 
     def test_info(self):
-        info = visor.info(self.path)
+        info = visor.info(self.vsr_path)
         self.assertEqual(info['animal_id'], 'VISOR001')
         self.assertEqual(info['project_name'], 'VISOR')
         self.assertEqual(info['species'], 'Mouse')
@@ -35,7 +35,7 @@ class TestVSR(TestBase):
         self.assertEqual(info['recon_versions'], ['xxx_20250525'])
 
     def test_info_not_vsr(self):
-        not_vsr_path = Path(str(self.path).replace('.vsr',''))
+        not_vsr_path = Path(str(self.vsr_path).replace('.vsr',''))
         with self.assertRaises(ValueError) as context:
             visor.info(not_vsr_path)
         self.assertEqual(str(context.exception), f'The path {not_vsr_path} does not have .vsr extension.')
@@ -46,7 +46,7 @@ class TestVSR(TestBase):
         self.assertEqual(str(context.exception), f'The path {self.another_vsr_path} is not a directory.')
 
     def test_list_image(self):
-        images = visor.list_image(self.path)
+        images = visor.list_image(self.vsr_path)
         self.assertEqual(images, 
             {
                 'raw': [
@@ -78,7 +78,7 @@ class TestVSR(TestBase):
         )
 
     def test_list_image_by_type_raw(self):
-        images = visor.list_image(self.path, type='raw')
+        images = visor.list_image(self.vsr_path, image_type='raw')
         self.assertEqual(images, [
             {
                 'name':'slice_1_10x',
@@ -97,7 +97,7 @@ class TestVSR(TestBase):
         ])
 
     def test_list_image_by_type_compr(self):
-        images = visor.list_image(self.path, type='compr')
+        images = visor.list_image(self.vsr_path, image_type='compr')
         self.assertEqual(images, [
             {
                 'name':'xxx_slice_1_10x_20241201',
@@ -108,37 +108,8 @@ class TestVSR(TestBase):
             }
         ])
 
-    def test_list_image_by_channel_488(self):
-        images = visor.list_image(self.path, channel='488')
-        self.assertEqual(images,
-            {
-                'raw': [
-                    {
-                        'name':'slice_1_10x',
-                        'channels':['488','561'],
-                        'resolutions':{
-                            "0": [1.0, 1.0, 1.0, 1.0, 1.0]
-                        }
-                    },
-                ],
-                'compr': []
-            }
-        )
-
-    def test_list_image_raw_by_type_and_channel(self):
-        images = visor.list_image(self.path, type='raw', channel='488')
-        self.assertEqual(images, [
-            {
-                'name':'slice_1_10x',
-                'channels':['488','561'],
-                'resolutions':{
-                    "0": [1.0, 1.0, 1.0, 1.0, 1.0]
-                }
-            }
-        ])
-
     def test_list_transform(self):
-        transforms = visor.list_transform(self.path)
+        transforms = visor.list_transform(self.vsr_path)
         self.assertEqual(transforms,
             {
                 'xxx_20250525': {
@@ -154,7 +125,7 @@ class TestVSR(TestBase):
         )
 
     def test_list_transform_by_version(self):
-        transforms = visor.list_transform(self.path, version='xxx_20250525')
+        transforms = visor.list_transform(self.vsr_path, recon_version='xxx_20250525')
         self.assertEqual(transforms,
             {
                 "spaces": ["raw","ortho","brain"],
@@ -167,6 +138,9 @@ class TestVSR(TestBase):
             }
         )
 
+    def test_create_vsr(self):
+        visor.create_vsr(self.another_vsr_path)
+        self.assertTrue(self.another_vsr_path.is_dir())
 
 if __name__ == '__main__':
     unittest.main()

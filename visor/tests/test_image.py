@@ -2,7 +2,6 @@
 #   python -m unittest visor/tests/test_image.py
 
 from pathlib import Path
-import json
 import unittest
 import shutil
 import visor
@@ -14,12 +13,12 @@ from zarr.codecs import BloscCodec
 class TestBase(unittest.TestCase):
 
     def setUp(self):
-        self.path = Path(__file__).parent/'data'/'VISOR001.vsr'
-        self.type = 'raw'
-        self.name = 'slice_1_10x'
-        self.image_path = self.path/f'visor_{self.type}_images'/f'{self.name}.zarr'
+        self.vsr_path = Path(__file__).parent/'data'/'VISOR001.vsr'
+        self.image_type = 'raw'
+        self.image_name = 'slice_1_10x'
+        self.image_path = self.vsr_path/f'visor_{self.image_type}_images'/f'{self.image_name}.zarr'
         self.another_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
-        self.another_image_path = self.another_vsr_path/f'visor_{self.type}_images'/f'{self.name}.zarr'
+        self.another_image_path = self.another_vsr_path/f'visor_{self.image_type}_images'/f'{self.image_name}.zarr'
 
 
 class TestImage(TestBase):
@@ -31,71 +30,19 @@ class TestImage(TestBase):
         if self.another_vsr_path.exists():
             shutil.rmtree(self.another_vsr_path)
 
-    def test_init_read_only(self):
-        v_img_r = visor.Image(
-            self.path,
-            type=self.type,
-            name=self.name,
-            mode='r',
+    def test_init(self):
+        img = visor.Image(
+            self.vsr_path,
+            image_type=self.image_type,
+            image_name=self.image_name,
         )
-        self.assertIsInstance(v_img_r, visor.Image)
-        self.assertEqual(v_img_r.path, self.image_path)
-        self.assertEqual(v_img_r.mode, 'r')
-        self.assertIsInstance(v_img_r.zgroup, zarr.Group)
-        self.assertIn('ome', v_img_r.attrs)
-        self.assertIn('visor', v_img_r.attrs)
-        self.assertIn('visor_stacks', v_img_r.attrs['visor'])
-        self.assertIn('channels', v_img_r.attrs['visor'])
-
-    def test_init_default_mode(self):
-        v_img_r = visor.Image(
-            self.path,
-            type=self.type,
-            name=self.name,
-        )
-        self.assertEqual(v_img_r.mode, 'r')
-
-    def test_init_read_not_exist(self):
-        with self.assertRaises(NotADirectoryError) as context:
-            visor.Image(
-                self.another_vsr_path,
-                type=self.type,
-                name=self.name,
-            )
-        self.assertEqual(str(context.exception), f'The image path {self.another_image_path} is not valid.')
-
-    def test_init_invalid_mode(self):
-        with self.assertRaises(ValueError) as context:
-            visor.Image(
-                self.path,
-                type=self.type,
-                name=self.name,
-                mode='w',
-            )
-        self.assertEqual(str(context.exception), f'Invalid mode \'w\': mode values could be \'r\' or \'w-\'.')
-
-    def test_init_create_only(self):
-
-        v_img_c = visor.Image(
-            self.another_vsr_path,
-            type=self.type,
-            name=self.name,
-            mode='w-',
-        )
-        self.assertIsInstance(v_img_c, visor.Image)
-        self.assertEqual(v_img_c.path, self.another_image_path)
-        self.assertEqual(v_img_c.mode, 'w-')
-        self.assertIsInstance(v_img_c.zgroup, zarr.Group)
-
-    def test_init_create_but_exist(self):
-        with self.assertRaises(FileExistsError) as context:
-            visor.Image(
-                self.path,
-                type=self.type,
-                name=self.name,
-                mode='w-',
-            )
-        self.assertEqual(str(context.exception), f'The image path {self.image_path} already exist.')
+        self.assertIsInstance(img, visor.Image)
+        self.assertEqual(img.path, self.image_path)
+        self.assertIsInstance(img.zgroup, zarr.Group)
+        self.assertIn('ome', img.attrs)
+        self.assertIn('visor', img.attrs)
+        self.assertIn('visor_stacks', img.attrs['visor'])
+        self.assertIn('channels', img.attrs['visor'])
 
 
 class TestImageRead(TestBase):
@@ -103,10 +50,9 @@ class TestImageRead(TestBase):
     def setUp(self):
         super().setUp()
         self.img = visor.Image(
-            self.path,
-            type=self.type,
-            name=self.name,
-            mode='r',
+            self.vsr_path,
+            image_type=self.image_type,
+            image_name=self.image_name,
         )
 
     def test_label_to_index(self):
@@ -150,18 +96,16 @@ class TestImageWrite(TestBase):
         self.dtype = 'uint16'
 
         img_base = visor.Image(
-            self.path,
-            type=self.type,
-            name=self.name,
-            mode='r',
+            self.vsr_path,
+            image_type=self.image_type,
+            image_name=self.image_name,
         )
         self.attrs = img_base.attrs
 
         self.img = visor.Image(
             self.another_vsr_path,
-            type=self.type,
-            name=self.name,
-            mode='w-',
+            image_type=self.image_type,
+            image_name=self.image_name,
         )
 
         self.new_arr = numpy.random.randint(
@@ -218,6 +162,7 @@ class TestImageWrite(TestBase):
         self.assertEqual(sub_np_arr.dtype, 'uint16')
         self.assertEqual(sub_np_arr.shape, (1, 2, 4, 4, 4))
         self.assertEqual(sub_np_arr.sum(), 0) # should be empty array
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,66 +1,55 @@
 from pathlib import Path
-import json
 import zarr
 import zarrs
 zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
-from zarr.codecs import BloscCodec
-import numpy
+from zarr.codecs import BytesCodec
 
 class Image:
 
-    def __init__(
-            self, path:str|Path, type:str,
-            name:str, mode:str='r'):
+    def __init__(self, vsr_path:str|Path, image_type:str, image_name:str):
         """
         Constructor of Image
 
         Parameters:
-            path: path to the .vsr file
-            type: image type, see visor.info()['image_types']
-            name: name of slice, see visor.list_image()
-            mode: mode pass to zarr.open()
+            vsr_path:   path to the .vsr file
+            image_type: image type, see visor.info()['image_types']
+            image_name: image name, see visor.list_image()
         """
 
-        image_path = Path(path)/f'visor_{type}_images'/f'{name}.zarr'
-
-        if 'r' == mode:
-            if not image_path.exists() or not image_path.is_dir():
-                raise NotADirectoryError(f'The image path {image_path} is not valid.')
-        elif 'w-' == mode:
-            if image_path.exists():
-                raise FileExistsError(f'The image path {image_path} already exist.')
-        else:
-            raise ValueError(f'Invalid mode \'{mode}\': mode values could be \'r\' or \'w-\'.')
+        image_path = Path(vsr_path)/f'visor_{image_type}_images'/f'{image_name}.zarr'
+        image_path.mkdir(parents=True, exist_ok=True)
 
         self.path   = image_path
-        self.mode   = mode
-        self.zgroup = zarr.open_group(image_path, mode=mode)
+        self.zgroup = zarr.open_group(image_path)
         self.attrs  = self.zgroup.attrs.asdict()
 
-    def label_to_index(self, filter:str, label:str):
+    def label_to_index(self, filter_type:str, filter_label:str):
         """
         Get index from label of filter stack/channel
 
         Parameters:
-            filter: stack or channel
-            label:  label of named stack or channel
+            filter_type:  stack or channel
+            filter_label: label of named stack or channel
 
         Returns:
             int
         """
-        v_meta = self.attrs['visor']
-        if 'stack' == filter:
+        v_meta = self.attrs.get('visor')
+        if not v_meta:
+            raise KeyError("Missing 'visor' metadata in zarr attributes.")
+
+        if 'stack' == filter_type:
             for s in v_meta['visor_stacks']:
-                if s['label'] == label:
+                if s['label'] == filter_label:
                     return s['index']
-            raise ValueError(f'The visor_stack {label} does not exist.')
-        elif 'channel' == filter:
+            raise ValueError(f'The visor_stack {filter_label} does not exist.')
+        elif 'channel' == filter_type:
             for s in v_meta['channels']:
-                if s['wavelength'] == label:
+                if s['wavelength'] == filter_label:
                     return s['index']
-            raise ValueError(f'The channel {label} does not exist.')
+            raise ValueError(f'The channel {filter_label} does not exist.')
         else:
-            raise ValueError(f'Invalid filter {filter}. Must be stack or channel')
+            raise ValueError(f'Invalid filter {filter_type}. Must be stack or channel')
 
     def open(self, resolution:str):
         """
@@ -76,17 +65,30 @@ class Image:
         return self.zgroup[str(resolution)]
     
     def create(
-            self, resolution:str, attrs:dict=None, 
-            dtype:str=None, shape:tuple=None,
-            shard_size:tuple=None, chunk_size:tuple=None,
-            compressors:BloscCodec=None):
+            self, resolution:str, attrs:dict, dtype:str,
+            shape:tuple, shard_size:tuple, chunk_size:tuple,
+            compressors:BytesCodec):
+        """
+        Create a zarr array
+
+        Parameters:
+            resolution:  resolution level, see visor.list_image()
+            dtype:       zarr array dtype
+            shape:       zarr array shape
+            shard_size:  zarr array shard_size
+            chunk_size:  zarr array chunk_size
+            compressors: zarr array compressors
+
+        Returns:
+            zarr.Array
+        """
 
         array_path = self.path/str(resolution)
 
         if array_path.is_dir():
             raise FileExistsError(f'The array {array_path} already exist.')
         zarr.create_array(
-            store=str(self.path),
+            store=self.path,
             name=str(resolution),
             dtype=dtype,
             shape=shape,
@@ -94,6 +96,15 @@ class Image:
             chunks=chunk_size,
             compressors=compressors,
         )
-        self.zgroup.attrs.update(attrs or {})
+        self.update_attrs(attrs)
 
         return self.zgroup[str(resolution)]
+    
+    def update_attrs(self, attrs:dict):
+        """
+        Update zarr.json attributes
+
+        Parameters:
+            attrs: new attributes
+        """  
+        self.zgroup.attrs.update(attrs)

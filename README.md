@@ -19,44 +19,44 @@ import visor
 - Check VSR Info / List Content
 ```py
 import visor
-path = 'path/to/VISOR001.vsr'
+vsr_path = 'path/to/VISOR001.vsr'
 
 # Check vsr info
-visor.info(path)
+visor.info(vsr_path)
 
 # List image
-visor.list_image(path)
-## Filter image list
-##   get type/channel from visor.info
-visor.list_image(path, type='raw')
-visor.list_image(path, channel='405')
-visor.list_image(path, type='raw', channel='405')
+visor.list_image(vsr_path)
+## Filter image list by image_type
+##   get image_types from visor.info
+visor.list_image(vsr_path, image_type='raw')
 
 # List transform
-visor.list_transform(path)
-## Filter transform list
-##   get version from visor.info
-visor.list_transform(path, version='xxx_20250525')
+visor.list_transform(vsr_path)
+## Filter transform list by recon_version
+##   get recon_versions from visor.info
+visor.list_transform(vsr_path, recon_version='xxx_20250525')
+
+# create vsr
+visor.create_vsr(vsr_path)
 ```
 
 - Work with Image
 ```py
 import visor
-path = 'path/to/VISOR001.vsr'
+vsr_path = 'path/to/VISOR001.vsr'
 
-# Construct read_only Image from raw image of slice_1_10x from zarr file
-# v_img_r is an instance of visor.Image
-v_img_r = visor.Image(
-    path,
-    type='raw',
-    name='slice_1_10x',
-    mode='r',
+# Construct Image from raw image of slice_1_10x from zarr file
+# v_img is an instance of visor.Image
+v_img = visor.Image(
+    vsr_path,
+    image_type='raw',
+    image_name='slice_1_10x',
 )
 
 # Open array of resolution 0
 # arr is a zarr.Array with 5-dimensions: vs,ch,z,y,x
 # see more about array format at https://visor-tech.github.io/visor-data-schema
-arr = v_img_r.open(resolution=0)
+arr = v_img.open(resolution=0)
 
 # Convert to numpy.ndarray
 # below code loads the entire zarr.Array into memory as a numpy.ndarray
@@ -72,10 +72,10 @@ np_arr = arr[:]
 sub_np_arr = arr[:1,:1,:,:,:]
 
 # To get index by visor_stack(vs) or channel(ch) labels
-s1_idx = v_img_r.label_to_index('stack', 'stack_1') # 0
+s1_idx = v_img.label_to_index('stack', 'stack_1') # 0
 s1_arr = arr[s1_idx:s1_idx+1,:,:,:,:]
 
-c488_idx = v_img_r.label_to_index('channel', '488') # 1
+c488_idx = v_img.label_to_index('channel', '488') # 1
 c488_arr = arr[:,c488_idx:c488_idx+1,:,:,:]
 
 # Convert to dask.array.Array
@@ -89,14 +89,13 @@ da_arr = da.from_array(arr, chunks=arr.chunks)
 # ------
 
 # Create Image
-new_path = 'path/to/VISOR002.vsr'
+new_vsr_path = 'path/to/VISOR002.vsr'
 ## Construct writable Image, fail if exists
-## v_img_w is an instance of visor.Image
-v_img_w = visor.Image(
-    new_path,
-    type='raw',
-    name='slice_1_10x',
-    mode='w-',
+## v_img is an instance of visor.Image
+v_img = visor.Image(
+    new_vsr_path,
+    image_type='raw',
+    image_name='slice_1_10x',
 )
 
 ## Metadata
@@ -109,10 +108,10 @@ new_arr_chunk_size = (1,1,2,2,2)
 dtype='uint16'
 
 ## Create new zarr array on disk
-zarray1 = v_img_w.create(
+zarray1 = v_img.create(
     resolution='1',
     dtype=dtype,
-    attr=attr,
+    attrs=attrs,
     shape=new_arr_shape,
     shard_size=new_arr_shard_size,
     chunk_size=new_arr_chunk_size,
@@ -126,9 +125,23 @@ new_arr = np.random.randint(0, 255, size=new_arr_shape, dtype=dtype)
 ## Save numpy.ndarray to zarr array on disk
 zarray1[...] = new_arr
 
-# Save to an existing zarr array on disk
-zarray0 = v_img_w.open(resolution='0')
+# ------
+
+# Modify Image
+## Update partial data to an existing zarr array on disk
+zarray0 = v_img.open(resolution='0')
 zarray0[:1,:,:,:,:] = new_arr[:1,:,:,:,:]
+
+## Update metadata
+attrs = v_img.attrs
+attrs['visor']['visor_stacks'].append(
+    {
+        "index": 1,
+        "label": "stack_2",
+        "position": [20.2647, 63.2581]
+    }
+)
+v_img.update_attrs(attrs)
 
 ```
 
