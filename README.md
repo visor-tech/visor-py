@@ -53,48 +53,36 @@ v_img_r = visor.Image(
     mode='r',
 )
 
-# Load array of resolution 0
+# Open array of resolution 0
 # arr is a zarr.Array with 5-dimensions: vs,ch,z,y,x
 # see more about array format at https://visor-tech.github.io/visor-data-schema
-# Note: arr can also be loaded by label-filters, see below
-arr = v_img_r.load(resolution=0)
+arr = v_img_r.open(resolution=0)
 
 # Convert to numpy.ndarray
 # below code loads the entire zarr.Array into memory as a numpy.ndarray
-# Note: zarr.Array and dask.array.Array are lazy loading, 
-#       that are recommended for large arrays
+# Note:
+#   zarr.Array supports lazy loading and is recommended for large arrays.
 np_arr = arr[:]
 
 # Or slice zarr.Array like numpy
 # sub_arr is a numpy.ndarray with 5-dimensions: vs=1,ch=1,z,y,x
-# Note: The zarrs.py module requires dimensions to be preserved.
+# Note:
+#   The zarrs.py module requires dimensions to be preserved.
+#   This operation also loads array into memory.
 sub_np_arr = arr[:1,:1,:,:,:]
 
-# Load array with visor_stack filter by label 'stack_1'
-# s1_arr is a numpy.ndarray with 5-dimensions: vs=1,ch,z,y,x
-s1_arr = v_img_r.load(
-    resolution=0,
-    stack='stack_1'
-)
+# To get index by visor_stack(vs) or channel(ch) labels
+s1_idx = v_img_r.label_to_index('stack', 'stack_1') # 0
+s1_arr = arr[s1_idx:s1_idx+1,:,:,:,:]
 
-# Load array with channel filter by label '488'
-# c488_arr is a numpy.ndarray with 5-dimensions: vs,ch=1,z,y,x
-c488_arr = v_img_r.load(
-    resolution=0,
-    channel='488'
-)
-
-# Load array of visor_stack and channel filter by label
-# s1c488_arr is a numpy.ndarray with 5-dimensions: vs=1,ch=1,z,y,x
-s1c488_arr = v_img_r.load(
-    resolution=0,
-    stack='stack_1',
-    channel='488'
-)
+c488_idx = v_img_r.label_to_index('channel', '488') # 1
+c488_arr = arr[:,c488_idx:c488_idx+1,:,:,:]
 
 # Convert to dask.array.Array
 # below code converts a zarr.Array to a dask.array.Array
 # but will not load data into memory just yet
+# Note:
+#   We like Dask but do not recommend it for disk writing with Zarr v3 (sharded Zarr) for now, because it relies on zarr.py, which has 10× slower disk writing performance compared to zarrs.py.
 import dask.array as da
 da_arr = da.from_array(arr, chunks=arr.chunks)
 
@@ -102,21 +90,6 @@ da_arr = da.from_array(arr, chunks=arr.chunks)
 
 # Create Image
 new_path = 'path/to/VISOR002.vsr'
-
-## Metadata
-##   follow https://visor-tech.github.io/visor-data-schema/
-info = {...}    # .vsr/info.json
-attr = {...}    # .vsr/visor_{type}_images/{name}.zarr/zarr.json['attributes']
-
-## Generate a random array
-## new_arr is a numpy.ndarray
-new_arr_shape      = (2,2,4,4,4)
-new_arr_shard_size = (1,1,4,4,4)
-new_arr_chunk_size = (1,1,2,2,2)
-
-import numpy as np
-new_arr = np.random.randint(0, 255, size=new_arr_shape, dtype='uint16')
-
 ## Construct writable Image, fail if exists
 ## v_img_w is an instance of visor.Image
 v_img_w = visor.Image(
@@ -124,23 +97,39 @@ v_img_w = visor.Image(
     type='raw',
     name='slice_1_10x',
     mode='w-',
-    resolution='0',
-    info=info,
+)
+
+## Metadata
+##   follow https://visor-tech.github.io/visor-data-schema/
+attr = {...}    # .vsr/visor_{type}_images/{name}.zarr/zarr.json['attributes']
+
+new_arr_shape      = (2,2,4,4,4)
+new_arr_shard_size = (1,1,4,4,4)
+new_arr_chunk_size = (1,1,2,2,2)
+dtype='uint16'
+
+## Create new zarr array on disk
+zarray1 = v_img_w.create(
+    resolution='1',
+    dtype=dtype,
     attr=attr,
     shape=new_arr_shape,
     shard_size=new_arr_shard_size,
     chunk_size=new_arr_chunk_size,
+    compressors=BloscCodec(cname="zstd", clevel=5),
 )
-v_img_w.save(new_arr)
 
-# Save a visor_stack
-# Note: The zarrs.py module requires dimensions to be preserved.
-s1_new_arr = new_arr[:1,:,:,:,:]
-v_img_w.save(s1_new_arr, stack='stack_1')
+## Generate a random array
+import numpy as np
+new_arr = np.random.randint(0, 255, size=new_arr_shape, dtype=dtype)
 
-# Save a channel, similarly
-c488_new_arr = new_arr[:,:1,:,:,:]
-v_img_w.save(c488_new_arr, channel='488')
+## Save numpy.ndarray to zarr array on disk
+zarray1[...] = new_arr
+
+# Save to an existing zarr array on disk
+zarray0 = v_img_w.open(resolution='0')
+zarray0[:1,:,:,:,:] = new_arr[:1,:,:,:,:]
+
 ```
 
 - Work with Transform
