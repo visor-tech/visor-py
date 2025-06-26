@@ -135,6 +135,12 @@ class AffineTransform:
             pos_stack = pos_stack[0]
         return pos_stack
 
+    def inverse(self):
+        """Return the inverse of the affine transformation."""
+        A_inv = np.linalg.inv(self.A_right)
+        offset_vec_inv = -self.offset_vec @ A_inv
+        return AffineTransform(A_inv, offset_vec_inv)
+
 def SaveAffineTransform(transform_file_name, A_right, offset_vec):
     """
     Save the affine transform matrix and offset vector in .tfm format.
@@ -149,6 +155,7 @@ def SaveAffineTransform(transform_file_name, A_right, offset_vec):
     affine_transform.SetTranslation(translation)
     
     sitk.WriteTransform(affine_transform, transform_file_name)
+    print("Saved affine transform to:", transform_file_name)
 
 def CorrectTransformJson(test_slice_path, overwrite = False):
     # also correct the transforms.json
@@ -200,6 +207,9 @@ if __name__ == "__main__":
         print("Bootstrapping test for transform/resample")
         T_raw_to_stack = Bootstrapping(test_slice_path)
         pos_raw_set, pos_stack_set = GenerateTestData(T_raw_to_stack)
+        v0 = [1, 0.5, 0.1]
+        v1 = T_raw_to_stack.inverse().apply(T_raw_to_stack.apply(v0))
+        npt.assert_allclose(v1, v0, rtol=1e-13, atol=2e-10)
         if args.bootstrap:
             # test against old code
             CompareWithOldCode(pos_raw_set, pos_stack_set)
