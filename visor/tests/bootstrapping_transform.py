@@ -8,18 +8,25 @@
 # Ref. https://github.com/visor-tech/3dimg_cruncher/blob/main/img_resampling.py
 
 import os
+import sys
 import numpy as np
 import numpy.testing as npt  # for assert_allclose
 import argparse
 import json
 import pprint
 
+import zarr
 import SimpleITK as sitk
+
+#sys.path.append('/home/xyy/code/SimpleVolumeViewer/neu3dviewer/')
+sys.path.append('/home/xyy/code/py/vtk_test/')
+from neu3dviewer.img_block_viewer import GUIControl
+
 
 # Utility function to convert lists to numpy arrays
 _a = lambda x: np.array(x, dtype=np.float64, order='C')
 
-def Bootstrapping(test_slice_path):
+def BootstrappingTransform(test_slice_path):
     """Generate ideal affine transform and save it."""
 
     # Ref. SimpleITK Spatial Transformations:
@@ -105,7 +112,6 @@ def GenerateTestData(T_raw_to_ortho):
     return pos_raw_set, pos_stack_set
     
 def CompareWithOldCode(pos_raw_set, pos_stack_set):
-    import sys
     sys.path.append('../../../3dimg_cruncher/flsmio')
     sys.path.append('../../../3dimg_cruncher')
     from img_resampling import frame_coor_to_fries_coor
@@ -193,6 +199,34 @@ def CorrectTransformJson(test_slice_path, overwrite = False):
     else:
         print("Metadata is already correct")
 
+def ViewByNeu3DViewer(zarr_dir):
+    """
+    Open Neu3DViewer to view image block.
+    """
+    # construct description of objects
+    # see help of Neu3DViewer for possible options
+    cmd_obj_desc = {
+        'img_path': zarr_dir,
+    }
+    #neu3dviewer.utils.debug_level = 2
+    print("Viewing in Neu3DViewer")
+    gui = GUIControl()
+    gui.EasyObjectImporter(cmd_obj_desc)
+
+def BootstrappingResampling(test_slice_path, T_raw_to_ortho):
+    print("Bootstrapping resampling tests.")
+    target_voxel_size = _a((1.0, 1.0, 1.0))
+
+    # TODO: make the path in accord with std
+    target_slice_path = os.path.join(test_slice_path, '..', '..', '..', "visor_recon_images", "xxx_20250627.zarr")
+
+    z_arr = zarr.create_array(target_slice_path, shape=(100, 100, 100), chunks=(100, 100, 100), dtype='uint16', overwrite=True)
+    z_arr[:,:,:] = np.random.randint(0, 256, size=(100, 100, 100), dtype='uint16')
+
+    print(z_arr.store_path)
+    ViewByNeu3DViewer(z_arr.store_path)
+
+    return None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test transform/resample functionality")
@@ -205,7 +239,7 @@ if __name__ == "__main__":
     
     if args.bootstrap is not None:
         print("Bootstrapping test for transform/resample")
-        T_raw_to_stack = Bootstrapping(test_slice_path)
+        T_raw_to_stack = BootstrappingTransform(test_slice_path)
         pos_raw_set, pos_stack_set = GenerateTestData(T_raw_to_stack)
         v0 = [1, 0.5, 0.1]
         v1 = T_raw_to_stack.inverse().apply(T_raw_to_stack.apply(v0))
@@ -213,5 +247,7 @@ if __name__ == "__main__":
         if args.bootstrap:
             # test against old code
             CompareWithOldCode(pos_raw_set, pos_stack_set)
+        
+        BootstrappingResampling(test_slice_path, T_raw_to_stack)
     else:
         print("No action specified. Use --bootstrap 0 or --bootstrap 1")
