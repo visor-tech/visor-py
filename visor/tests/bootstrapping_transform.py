@@ -18,8 +18,9 @@ import pprint
 import zarr
 import SimpleITK as sitk
 
-#sys.path.append('/home/xyy/code/SimpleVolumeViewer/neu3dviewer/')
-sys.path.append('/home/xyy/code/py/vtk_test/')
+sys.path.append('/home/xyy/code/SimpleVolumeViewer/')
+#sys.path.append('/home/xyy/code/py/vtk_test/')
+import neu3dviewer
 from neu3dviewer.img_block_viewer import GUIControl
 
 
@@ -76,6 +77,7 @@ def BootstrappingTransform(test_slice_path):
     #  [offset_vec, 1]]
 
     transform_file_name = os.path.join(test_slice_path, "raw_to_ortho", "affine_transform.tfm")
+    os.makedirs(os.path.join(test_slice_path, "raw_to_ortho"), exist_ok=True)
     SaveAffineTransform(transform_file_name, A_right, offset_vec)
     CorrectTransformJson(test_slice_path)
 
@@ -160,6 +162,7 @@ def SaveAffineTransform(transform_file_name, A_right, offset_vec):
     translation = offset_vec[0].tolist()
     affine_transform.SetTranslation(translation)
     
+    print("transform_file_name:", transform_file_name)
     sitk.WriteTransform(affine_transform, transform_file_name)
     print("Saved affine transform to:", transform_file_name)
 
@@ -209,22 +212,31 @@ def ViewByNeu3DViewer(zarr_dir):
         'img_path': zarr_dir,
     }
     #neu3dviewer.utils.debug_level = 2
+    neu3dviewer.utils.debug_level = 4
     print("Viewing in Neu3DViewer")
     gui = GUIControl()
     gui.EasyObjectImporter(cmd_obj_desc)
+    gui.Start()
 
 def BootstrappingResampling(test_slice_path, T_raw_to_ortho):
     print("Bootstrapping resampling tests.")
     target_voxel_size = _a((1.0, 1.0, 1.0))
 
-    # TODO: make the path in accord with std
-    target_slice_path = os.path.join(test_slice_path, '..', '..', '..', "visor_recon_images", "xxx_20250627.zarr")
+    z_arr_raw = zarr.open(os.path.join(test_slice_path, '..', '..', '..', "visor_raw_images", "slice_1_10x.zarr", "0"), mode='r')
+    print("Raw zarr array shape:", z_arr_raw.shape)
 
-    z_arr = zarr.create_array(target_slice_path, shape=(100, 100, 100), chunks=(100, 100, 100), dtype='uint16', overwrite=True)
-    z_arr[:,:,:] = np.random.randint(0, 256, size=(100, 100, 100), dtype='uint16')
+    if 0:
+        # TODO: make the path in accord with std
+        target_slice_path = os.path.join(test_slice_path, '..', '..', '..', "visor_recon_images", "xxx_20250627.zarr")
 
-    print(z_arr.store_path)
-    ViewByNeu3DViewer(z_arr.store_path)
+        z_arr = zarr.create_array(target_slice_path, shape=(100, 100, 100), chunks=(100, 100, 100), dtype='uint16', overwrite=True)
+        z_arr[:,:,:] = np.random.randint(0, 256, size=(100, 100, 100), dtype='uint16')
+
+    if 0:
+        p = os.path.abspath(z_arr.store.root)
+        #print(p)
+        #p = '/home/xyy/code/visor-py/visor/tests/data/VISOR001.vsr/visor_raw_images/slice_1_10x.zarr/0'
+        ViewByNeu3DViewer(p)
 
     return None
 
