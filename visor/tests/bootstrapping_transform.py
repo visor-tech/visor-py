@@ -11,6 +11,8 @@ import os
 import numpy as np
 import numpy.testing as npt  # for assert_allclose
 import argparse
+import json
+import pprint
 
 import SimpleITK as sitk
 
@@ -66,8 +68,9 @@ def Bootstrapping(test_slice_path):
     # [[A_right   , 0],
     #  [offset_vec, 1]]
 
-    transform_file_name = os.path.join(test_slice_path, "affine_transform.tfm")
+    transform_file_name = os.path.join(test_slice_path, "raw_to_ortho", "affine_transform.tfm")
     SaveAffineTransform(transform_file_name, A_right, offset_vec)
+    CorrectTransformJson(test_slice_path)
 
     T_raw_to_ortho = AffineTransform(A_right, offset_vec)
 
@@ -86,10 +89,18 @@ def GenerateTestData(T_raw_to_ortho):
     pos_stack_set = [
         T_raw_to_ortho.apply(pos_raw) for pos_raw in pos_raw_set
     ]
+
+    def _print_named_array(name, arr):
+        str = np.array2string(arr, prefix = name + ' = ', precision=16, separator=', ')
+        print(f"{name} = {str}")
+
+    print("")
+    print("Generated test data")
+    print("===================")
     for idx in range(len(pos_raw_set)):
         print(f"Test {idx}:")
-        print(f"    pos_raw = {pos_raw_set[idx]}")
-        print(f"    pos_stack = {pos_stack_set[idx]}")
+        _print_named_array("pos_raw", pos_raw_set[idx])
+        _print_named_array("pos_stack", pos_stack_set[idx])
     
     return pos_raw_set, pos_stack_set
     
@@ -99,10 +110,13 @@ def CompareWithOldCode(pos_raw_set, pos_stack_set):
     sys.path.append('../../../3dimg_cruncher')
     from img_resampling import frame_coor_to_fries_coor
 
-    print("Comparing with old code...")
+    print("")
+    print("Comparing with old code")
+    print("=======================")
+    print("(No assertion is good)")
     for idx, pos_raw in enumerate(pos_raw_set):
         r_fries = frame_coor_to_fries_coor(pos_raw)
-        print("*******************************************")
+        print("")
         print("Raw position:", pos_raw, sep='\n')
         print("Answer :", r_fries, sep='\n')
         npt.assert_allclose(pos_stack_set[idx], r_fries, rtol=1e-13, atol=2e-10)
@@ -136,6 +150,43 @@ def SaveAffineTransform(transform_file_name, A_right, offset_vec):
     
     sitk.WriteTransform(affine_transform, transform_file_name)
 
+def CorrectTransformJson(test_slice_path, overwrite = False):
+    # also correct the transforms.json
+    T_set_metadata = json.load(open(os.path.join(test_slice_path, "transforms.json"), 'r'))
+    #pprint.pprint(T_set_metadata)
+    
+    # Find and update the raw_to_ortho transform format
+    found = False
+    needs_update = False
+    for transform in T_set_metadata:
+        if transform.get('name') == 'raw_to_ortho':
+            found = True
+            if transform.get('format') != 'tfm':
+                transform['format'] = 'tfm'
+                needs_update = True
+            break
+    
+    # If not found, add the raw_to_ortho transform entry
+    if not found:
+        T_set_metadata.append({
+            'format': 'tfm',
+            'name': 'raw_to_ortho',
+            'type': 'affine'
+        })
+        needs_update = True
+    
+    if needs_update:
+        if overwrite:
+            # Save the updated metadata back to transforms.json
+            with open(os.path.join(test_slice_path, "transforms.json"), 'w') as f:
+                json.dump(T_set_metadata, f, indent=2)
+        else:
+            print("Corrected metadata (Not overwriting):")
+            pprint.pprint(T_set_metadata)
+    else:
+        print("Metadata is already correct")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test transform/resample functionality")
     parser.add_argument("--bootstrap", type=int, choices=[0, 1], 
@@ -143,6 +194,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     test_slice_path = "./data/VISOR001.vsr/visor_recon_transforms/xxx_20250525/slice_1_10x"
+    os.makedirs(test_slice_path, exist_ok=True)
     
     if args.bootstrap is not None:
         print("Bootstrapping test for transform/resample")
