@@ -18,12 +18,6 @@ import pprint
 import zarr
 import SimpleITK as sitk
 
-sys.path.append('/home/xyy/code/SimpleVolumeViewer/')
-#sys.path.append('/home/xyy/code/py/vtk_test/')
-import neu3dviewer
-from neu3dviewer.img_block_viewer import GUIControl
-
-
 # Utility function to convert lists to numpy arrays
 _a = lambda x: np.array(x, dtype=np.float64, order='C')
 
@@ -206,6 +200,12 @@ def ViewByNeu3DViewer(zarr_dir):
     """
     Open Neu3DViewer to view image block.
     """
+    sys.path.append('/home/xyy/code/SimpleVolumeViewer/')
+    #sys.path.append('/home/xyy/code/py/vtk_test/')
+    import neu3dviewer
+    from neu3dviewer.img_block_viewer import GUIControl
+
+
     # construct description of objects
     # see help of Neu3DViewer for possible options
     cmd_obj_desc = {
