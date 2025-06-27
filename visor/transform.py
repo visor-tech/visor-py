@@ -7,19 +7,22 @@ import numpy
 
 class Transform:
 
-    def __init__(self, path:Path):
+    def __init__(self, vsr_path:str|Path, recon_version:str,
+                 slice_name:str, transform_name:str):
         """
         Constructor of Transform
 
         Parameters:
-            path:    path to the .vsr file
-            version: reconstruction version, see visor.info()['recon_versions']
-            name:    name of slice, see visor.list_image()
-
+            vsr_path:       path to the .vsr file
+            recon_version:  reconstruction version, see visor.info()['recon_versions']
+            slice_name:     name of slice, see visor.list_transform()
+            transform_name: name of transform, see visor.list_transform()
         """
-        if not path.exists() or not path.is_dir():
-            raise NotADirectoryError(f'Version {path} does not exist.')
-        self.path = path
+        slice_path = Path(vsr_path)/'visor_recon_transforms'/recon_version/slice_name
+        transform_path = Path(vsr_path)/'visor_recon_transforms'/recon_version/slice_name/transform_name
+        transform_path.mkdir(parents=True, exist_ok=True)
+
+        self.path = transform_path
 
     def save(self):
         pass

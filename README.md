@@ -100,7 +100,8 @@ v_img = visor.Image(
 
 ## Metadata
 ##   follow https://visor-tech.github.io/visor-data-schema/
-attr = {...}    # .vsr/visor_{type}_images/{name}.zarr/zarr.json['attributes']
+##   .vsr/visor_{image_type}_images/{image_name}.zarr/zarr.json['attributes']
+attr = {...}
 
 new_arr_shape      = (2,2,4,4,4)
 new_arr_shard_size = (1,1,4,4,4)
@@ -142,7 +143,6 @@ attrs['visor']['visor_stacks'].append(
     }
 )
 v_img.update_attrs(attrs)
-
 ```
 
 - Work with Transform
@@ -153,9 +153,10 @@ path = 'path/to/VISOR001.vsr'
 # Construct Transform with version and name
 # v_xfm is an instance of visor.Transform
 v_xfm = visor.Transform(
-    path,
-    version='xxx_20250525',
-    name='slice_1_10x',
+    vsr_path,
+    recon_version='xxx_20250525',
+    slice_name='slice_1_10x',
+    transform_name='raw_to_ortho',
 )
 
 # Save slice_1_10x's raw_to_ortho affine transform as zarr
@@ -166,22 +167,32 @@ raw_to_ortho_mat = [0, np.sin(45) * 1.03, 0,
                     3.5, np.cos(45) * 1.03, 0]
 v_xfm.save(
     raw_to_ortho_mat,
-    name='raw_to_ortho',
-    type='affine',
-    format='zarr',
+    transform_name='raw_to_ortho',
+    transform_type='affine',
+    transform_format='zarr',
 )
+
+# Apply transform to roi, get roi from
+#  
 
 # Resample
 # roi is a tuple of slices
 #   - region in source space ('raw')
 # rs_arr is a numpy.ndarray
-#   - resampled array in target space ('ortho')
-roi = (slice(1),slice(1),slice(16,32),slice(16,32),slice(16,32))
+#   - resampled array in target space ('brain')
+roi = ((16,32),(16,32),(16,32))
 rs_arr = v_xfm.resample(
     roi,
-    from_space='raw',
-    to_space='ortho',
+    source_space='raw',
+    target_space='brain',
 )
+
+def resample
+
+    backward_transform = forward_transform.inverse()
+    roi_source = backward_transform.apply(roi_target)
+    target_arr = interpolation(raw_arr, roi_source)
+    return target_arr
 ```
 
 ## References
