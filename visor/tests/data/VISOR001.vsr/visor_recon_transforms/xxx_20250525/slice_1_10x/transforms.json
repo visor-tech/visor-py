@@ -2,7 +2,7 @@
   {
       "name": "raw_to_ortho",
       "type": "affine",
-      "format": "zarr"
+      "format": "tfm"
   },
   {
       "name": "raw_to_brain",

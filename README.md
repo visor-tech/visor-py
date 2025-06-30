@@ -150,49 +150,95 @@ v_img.update_attrs(attrs)
 import visor
 path = 'path/to/VISOR001.vsr'
 
-# Construct Transform with version and name
-# v_xfm is an instance of visor.Transform
-v_xfm = visor.Transform(
-    vsr_path,
-    recon_version='xxx_20250525',
-    slice_name='slice_1_10x',
-    transform_name='raw_to_ortho',
-)
-
-# Save slice_1_10x's raw_to_ortho affine transform as zarr
-# Note: transform type and format could be various
-# see more about transform type / format at https://visor-tech.github.io/visor-data-schema
+# Construct Transform
+# v_xfm is an instance of visor.Transform, which is an affine transform from 'raw' space to 'ortho' space
 raw_to_ortho_mat = [0, np.sin(45) * 1.03, 0,
                     0, 0, 1.03,
                     3.5, np.cos(45) * 1.03, 0]
-v_xfm.save(
-    raw_to_ortho_mat,
-    transform_name='raw_to_ortho',
+
+offset_vec = [0,0,0]
+params = [stack_idx] + [channel_idx] + raw_to_ortho_mat + offset_vec,
+# params = [stack_idx] + [channel_idx] + model_params,
+v_xfm = visor.Transform(
+    params: params,
     transform_type='affine',
-    transform_format='zarr',
+    from_space='raw',
+    to_space='ortho',
+)
+# Save transform of reconstruction version 'xxx_20250525', slice name 'slice_1_10x, as tfm (SimpleITK) format
+# PATH: version/slice_/space_to_space/stack/channel/type.format
+# Note: transform type and format could be various
+# see more about transform type / format at https://visor-tech.github.io/visor-data-schema
+visor.save_transform(
+    v_xfm,
+    vsr_path,
+    recon_version='xxx_20250525',
+    slice_name='slice_1_10x',
+    format='tfm',
+)
+# generate transform:
+# for slice_ in slices:
+#     for stack in stacks:
+#         for channel in channels:
+#             image1 = visor.load_image(slice_, stack_1, channel)
+#             image2 = visor.load_image(slice_, stack_2, channel)
+#             transform = recon.compute_transform(mode, image1, image2)
+#             visor.save_transform(transform, version, slice_, stack, channel)
+
+
+# Load slice_1_10x
+# load() method will
+#   - check metadata in visor_recon_transforms/xxx_20250525/slice_1_10x/transforms.json
+#   - based on type='affine',format='tfm', load transform as SimpleITK.Transform
+# t_slice_1_raw_to_ortho is an instance of SimpleITK.Transform
+
+v_xfm = visor.load_transform(
+    vsr_path,
+    recon_version='xxx_20250525',
+    slice_name='slice_1_10x',
+    from_space='raw',
+    to_space='ortho',
 )
 
-# Apply transform to roi, get roi from
-#  
+# resample
+# slice_image = visor.resample(
+#     vsr_path,
+#     recon_version='xxx_20250525',
+#     from_space='raw',
+#     to_space='ortho',
+#     slice_name='slice_1_10x',
+#     stack_name='stack_1',
+#     channel_name='488',
+# )
 
-# Resample
+# for z,y,x in brain:
+#     stack     = get_stack(brain)
+#     channel   = get_channel(brain)
+#     recon_img = resample(stack, channel, image, transform)
+# t_slice_1_raw_to_ortho = v_xfm.load('slice_1_10x')
+
+
+# Apply transform to roi, get roi from
 # roi is a tuple of slices
 #   - region in source space ('raw')
 # rs_arr is a numpy.ndarray
 #   - resampled array in target space ('brain')
-roi = ((16,32),(16,32),(16,32))
-rs_arr = v_xfm.resample(
-    roi,
-    source_space='raw',
-    target_space='brain',
-)
+# points_brain_space = [
+#         [ch1, z1,y1,x1],
+#         [ch2, z2,y2,x2]
+#         ]
+# points_raw_space = T_brain_to_raw.apply(points_brain_space)
+# assert points_raw_space == [
+#                               [slice_idx1, stack_idx1, ch1, z1, y1, x1],
+#                               [slice_idx2, stack_idx2, ch2, z2, y2, x2],
+#                             ]
 
-def resample
+# def resample
 
-    backward_transform = forward_transform.inverse()
-    roi_source = backward_transform.apply(roi_target)
-    target_arr = interpolation(raw_arr, roi_source)
-    return target_arr
+#     backward_transform = forward_transform.inverse()
+#     roi_source = backward_transform.apply(roi_target)
+#     target_arr = interpolation(raw_arr, roi_source)
+#     return target_arr
 ```
 
 ## References
