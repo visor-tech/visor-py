@@ -25,8 +25,39 @@ class TestVSR(TestBase):
         if self.another_vsr_path.exists():
             shutil.rmtree(self.another_vsr_path)
 
+    def test_init(self):
+        vsr = visor.VSR(self.vsr_path)
+        self.assertIsInstance(vsr, visor.VSR)
+
+    def test_init_not_vsr(self):
+        not_vsr_path = Path(str(self.vsr_path).replace('.vsr',''))
+        with self.assertRaises(ValueError) as context:
+            visor.VSR(not_vsr_path)
+        self.assertEqual(str(context.exception), f'The path {not_vsr_path} does not have .vsr extension.')
+
+    def test_init_not_exist(self):
+        with self.assertRaises(NotADirectoryError) as context:
+            visor.VSR(self.another_vsr_path)
+        self.assertEqual(str(context.exception), f'The path {self.another_vsr_path} is not a directory.')
+
+    def test_create_vsr(self):
+        visor.VSR(self.another_vsr_path, create=True)
+        self.assertTrue(self.another_vsr_path.is_dir())
+
+
+class TestVSRMethods(TestBase):
+
+    def setUp(self):
+        super().setUp()
+        self.vsr = visor.VSR(self.vsr_path)
+        self.another_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
+
+    def tearDown(self):
+        if self.another_vsr_path.exists():
+            shutil.rmtree(self.another_vsr_path)
+
     def test_info(self):
-        info = visor.info(self.vsr_path)
+        info = self.vsr.info()
         self.assertEqual(info['animal_id'], 'VISOR001')
         self.assertEqual(info['project_name'], 'VISOR')
         self.assertEqual(info['species'], 'Mouse')
@@ -34,19 +65,8 @@ class TestVSR(TestBase):
         self.assertEqual(info['image_types'], ['raw','compr'])
         self.assertEqual(info['recon_versions'], ['xxx_20250525'])
 
-    def test_info_not_vsr(self):
-        not_vsr_path = Path(str(self.vsr_path).replace('.vsr',''))
-        with self.assertRaises(ValueError) as context:
-            visor.info(not_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {not_vsr_path} does not have .vsr extension.')
-
-    def test_info_not_exist(self):
-        with self.assertRaises(NotADirectoryError) as context:
-            visor.info(self.another_vsr_path)
-        self.assertEqual(str(context.exception), f'The path {self.another_vsr_path} is not a directory.')
-
-    def test_list_image(self):
-        images = visor.list_image(self.vsr_path)
+    def test_images(self):
+        images = self.vsr.images()
         self.assertEqual(images, 
             {
                 'raw': [
@@ -77,8 +97,8 @@ class TestVSR(TestBase):
             }
         )
 
-    def test_list_image_by_type_raw(self):
-        images = visor.list_image(self.vsr_path, image_type='raw')
+    def test_images_by_type_raw(self):
+        images = self.vsr.images(image_type='raw')
         self.assertEqual(images, [
             {
                 'name':'slice_1_10x',
@@ -96,8 +116,8 @@ class TestVSR(TestBase):
             }
         ])
 
-    def test_list_image_by_type_compr(self):
-        images = visor.list_image(self.vsr_path, image_type='compr')
+    def test_images_by_type_compr(self):
+        images = self.vsr.images(image_type='compr')
         self.assertEqual(images, [
             {
                 'name':'xxx_slice_1_10x_20241201',
@@ -108,8 +128,8 @@ class TestVSR(TestBase):
             }
         ])
 
-    def test_list_transform(self):
-        transforms = visor.list_transform(self.vsr_path)
+    def test_transforms(self):
+        transforms = self.vsr.transforms()
         self.assertEqual(transforms,
             {
                 'xxx_20250525': {
@@ -124,8 +144,8 @@ class TestVSR(TestBase):
             }
         )
 
-    def test_list_transform_by_version(self):
-        transforms = visor.list_transform(self.vsr_path, recon_version='xxx_20250525')
+    def test_transforms_by_version(self):
+        transforms = self.vsr.transforms(recon_version='xxx_20250525')
         self.assertEqual(transforms,
             {
                 "spaces": ["raw","ortho","brain"],
@@ -138,9 +158,6 @@ class TestVSR(TestBase):
             }
         )
 
-    def test_create_vsr(self):
-        visor.create_vsr(self.another_vsr_path)
-        self.assertTrue(self.another_vsr_path.is_dir())
 
 if __name__ == '__main__':
     unittest.main()

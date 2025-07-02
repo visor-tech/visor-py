@@ -3,25 +3,38 @@ import zarr
 import zarrs
 zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 from zarr.codecs import BytesCodec
+import numpy
 
 class Image:
 
-    def __init__(self, vsr_path:str|Path, image_type:str, image_name:str):
+    def __init__(self, vsr_path:str|Path,
+                 image_type:str, image_name:str, create=False):
         """
         Constructor of Image
 
         Parameters:
             vsr_path:   path to the .vsr file
-            image_type: image type, see visor.info()['image_types']
-            image_name: image name, see visor.list_image()
+            image_type: image type, see vsr.info()['image_types']
+            image_name: image name, see vsr.images()
+            create:     boolean
         """
-
-        image_path = Path(vsr_path)/f'visor_{image_type}_images'/f'{image_name}.zarr'
-        image_path.mkdir(parents=True, exist_ok=True)
+        vsr_path = Path(vsr_path)
+        # Validate vsr path
+        if vsr_path.suffix != '.vsr':
+            raise ValueError(f'The path {vsr_path} is not valid, must contain .vsr extension.')
+        if not vsr_path.exists() or not vsr_path.is_dir():
+            raise NotADirectoryError(f'The path {vsr_path} is not a directory.')
+        
+        image_path = vsr_path/f'visor_{image_type}_images'/f'{image_name}.zarr'
+        if create:
+            image_path.mkdir(parents=True, exist_ok=True)
+        if not image_path.exists() or not image_path.is_dir():
+            raise NotADirectoryError(f'The path {image_path} is not a directory.')
 
         self.path   = image_path
         self.zgroup = zarr.open_group(image_path)
         self.attrs  = self.zgroup.attrs.asdict()
+
 
     def label_to_index(self, filter_type:str, filter_label:str):
         """
@@ -51,28 +64,31 @@ class Image:
         else:
             raise ValueError(f'Invalid filter {filter_type}. Must be stack or channel')
 
-    def open(self, resolution:str):
+
+    def load(self, resolution:str):
         """
-        Open a zarr array by resolution
+        Load array by resolution
 
         Parameters:
-            resolution: resolution level, see visor.list_image()
+            resolution: resolution level, see vsr.images()
 
         Returns:
             zarr.Array
         """
 
         return self.zgroup[str(resolution)]
-    
-    def create(
-            self, resolution:str, attrs:dict, dtype:str,
+
+
+    def save(
+            self, arr:numpy.ndarray, resolution:str, dtype:str,
             shape:tuple, shard_size:tuple, chunk_size:tuple,
             compressors:BytesCodec):
         """
         Create a zarr array
 
         Parameters:
-            resolution:  resolution level, see visor.list_image()
+            arr:         the array to save
+            resolution:  resolution level, see vsr.images()
             dtype:       zarr array dtype
             shape:       zarr array shape
             shard_size:  zarr array shard_size
@@ -96,7 +112,6 @@ class Image:
             chunks=chunk_size,
             compressors=compressors,
         )
-        self.update_attrs(attrs)
 
         return self.zgroup[str(resolution)]
     

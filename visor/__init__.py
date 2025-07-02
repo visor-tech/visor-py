@@ -1,12 +1,9 @@
-from .vsr import info, list_image, list_transform, create_vsr
+from .vsr import VSR
 from .image import Image
 from .transform import Transform
 
 __all__ = [
-  'info',
-  'list_image',
-  'list_transform',
-  'create_vsr',
+  'VSR',
   'Image',
   'Transform',
 ]

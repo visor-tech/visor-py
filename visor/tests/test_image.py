@@ -17,8 +17,8 @@ class TestBase(unittest.TestCase):
         self.image_type = 'raw'
         self.image_name = 'slice_1_10x'
         self.image_path = self.vsr_path/f'visor_{self.image_type}_images'/f'{self.image_name}.zarr'
-        self.another_vsr_path = Path(__file__).parent/'data'/'VISOR002.vsr'
-        self.another_image_path = self.another_vsr_path/f'visor_{self.image_type}_images'/f'{self.image_name}.zarr'
+        self.another_image_name = 'slice_2_10x'
+        self.another_image_path = self.vsr_path/f'visor_{self.image_type}_images'/f'{self.another_image_name}.zarr'
 
 
 class TestImage(TestBase):
@@ -27,8 +27,8 @@ class TestImage(TestBase):
         super().setUp()
 
     def tearDown(self):
-        if self.another_vsr_path.exists():
-            shutil.rmtree(self.another_vsr_path)
+        if self.another_image_path.exists():
+            shutil.rmtree(self.another_image_path)
 
     def test_init(self):
         img = visor.Image(
@@ -44,8 +44,28 @@ class TestImage(TestBase):
         self.assertIn('visor_stacks', img.attrs['visor'])
         self.assertIn('channels', img.attrs['visor'])
 
+    def test_init_not_exist(self):
+        with self.assertRaises(NotADirectoryError) as context:
+            visor.Image(
+                self.vsr_path,
+                image_type=self.image_type,
+                image_name=self.another_image_name,
+            )
+        self.assertEqual(str(context.exception),
+                         f'The path {self.another_image_path} is not a directory.')
 
-class TestImageRead(TestBase):
+    def test_create(self):
+        img = visor.Image(
+            self.vsr_path,
+            image_type=self.image_type,
+            image_name=self.another_image_name,
+            create=True,
+        )
+        self.assertIsInstance(img, visor.Image)
+        self.assertEqual(img.path, self.another_image_path)
+
+
+class TestImageLoad(TestBase):
 
     def setUp(self):
         super().setUp()
@@ -62,8 +82,8 @@ class TestImageRead(TestBase):
         c488_idx = self.img.label_to_index('channel', '488')
         self.assertEqual(c488_idx, 0)
 
-    def test_open(self):
-        arr = self.img.open(resolution='0')
+    def test_load(self):
+        arr = self.img.load(resolution='0')
         self.assertIsInstance(arr, zarr.Array)
         self.assertEqual(arr.ndim, 5)
         self.assertEqual(arr.dtype, 'uint16')
@@ -86,7 +106,7 @@ class TestImageRead(TestBase):
         self.assertIsInstance(da_arr, da.Array)
 
 
-class TestImageWrite(TestBase):
+class TestImageSave(TestBase):
 
     def setUp(self):
         super().setUp()
@@ -103,35 +123,40 @@ class TestImageWrite(TestBase):
         self.attrs = img_base.attrs
 
         self.img = visor.Image(
-            self.another_vsr_path,
+            self.vsr_path,
             image_type=self.image_type,
-            image_name=self.image_name,
+            image_name=self.another_image_name,
+            create=True,
         )
 
-        self.new_arr = numpy.random.randint(
+        self.zero_arr = numpy.zeros(
+            self.new_arr_shape,
+            dtype=self.dtype,
+        )
+
+        self.random_partial_arr = numpy.random.randint(
             0, 255,
-            size=self.new_arr_shape,
+            size=[1,2,4,4,4],
             dtype=self.dtype,
         )
 
     def tearDown(self):
-        if self.another_vsr_path.exists():
-            shutil.rmtree(self.another_vsr_path)
+        if self.another_image_path.exists():
+            shutil.rmtree(self.another_image_path)
 
-    def test_create_and_save(self):
-        zarray = self.img.create(
+    def test_save(self):
+
+        self.img.save(
+            self.zero_arr,
             resolution='0',
-            dtype='uint16',
-            attrs=self.attrs,
+            dtype=self.dtype,
             shape=self.new_arr_shape,
             shard_size=self.new_arr_shard_size,
             chunk_size=self.new_arr_chunk_size,
             compressors=BloscCodec(cname="zstd", clevel=5),
         )
-
-        zarray[...] = self.new_arr
         
-        arr = self.img.open(resolution='0')
+        arr = self.img.load(resolution='0')
         self.assertIsInstance(arr, zarr.Array)
         self.assertEqual(arr.ndim, 5)
         self.assertEqual(arr.dtype, 'uint16')
@@ -143,25 +168,26 @@ class TestImageWrite(TestBase):
         self.assertEqual(arr_compressor_info['clevel'], 5)
 
     def test_save_partially(self):
-        zarray = self.img.create(
-            resolution='1',
-            attrs=self.attrs,
-            dtype='uint16',
+
+        self.img.save(
+            self.zero_arr,
+            resolution='0',
+            dtype=self.dtype,
             shape=self.new_arr_shape,
             shard_size=self.new_arr_shard_size,
             chunk_size=self.new_arr_chunk_size,
             compressors=BloscCodec(cname="zstd", clevel=5),
         )
+        
+        arr = self.img.load(resolution='0')
+        arr[:1,:,:,:,:] = self.random_partial_arr
 
-        zarray[:1,:,:,:,:] = self.new_arr[:1,:,:,:,:]
-
-        arr = self.img.open(resolution='1')
-        self.assertIsInstance(arr, zarr.Array)
-        sub_np_arr = arr[1:2,:,:,:,:] # no data yet
-        self.assertEqual(sub_np_arr.ndim, 5)
-        self.assertEqual(sub_np_arr.dtype, 'uint16')
-        self.assertEqual(sub_np_arr.shape, (1, 2, 4, 4, 4))
-        self.assertEqual(sub_np_arr.sum(), 0) # should be empty array
+        updated_arr = self.img.load(resolution='0')
+        self.assertIsInstance(updated_arr, zarr.Array)
+        updated_part = arr[:1,:,:,:,:]
+        not_updated_part = arr[1:2,:,:,:,:]
+        self.assertNotEqual(updated_part.sum(), 0) # should be updated
+        self.assertEqual(not_updated_part.sum(), 0) # should not be updated
 
 
 if __name__ == '__main__':

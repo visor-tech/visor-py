@@ -7,22 +7,43 @@ import numpy
 
 class Transform:
 
-    def __init__(self, vsr_path:str|Path, recon_version:str,
-                 slice_name:str, transform_name:str):
+    def __init__(self, vsr_path:str|Path,
+                 recon_version:str, slice_name:str, create=False):
         """
         Constructor of Transform
 
         Parameters:
-            vsr_path:       path to the .vsr file
-            recon_version:  reconstruction version, see visor.info()['recon_versions']
-            slice_name:     name of slice, see visor.list_transform()
-            transform_name: name of transform, see visor.list_transform()
+            vsr_path:      path to the .vsr file
+            recon_version: reconstruction version, see vsr.info()['recon_versions']
+            slice_name:    slice directory name, see vsr.transforms()
+            create:        boolean
         """
-        slice_path = Path(vsr_path)/'visor_recon_transforms'/recon_version/slice_name
-        transform_path = Path(vsr_path)/'visor_recon_transforms'/recon_version/slice_name/transform_name
-        transform_path.mkdir(parents=True, exist_ok=True)
+        vsr_path = Path(vsr_path)
+        # Validate vsr path
+        if vsr_path.suffix != '.vsr':
+            raise ValueError(f'The path {vsr_path} is not valid, must contain .vsr extension.')
+        if not vsr_path.exists() or not vsr_path.is_dir():
+            raise NotADirectoryError(f'The path {vsr_path} is not a directory.')
+        
+        transform_path = vsr_path/'visor_recon_transforms'/recon_version/slice_name
+        if create:
+            transform_path.mkdir(parents=True, exist_ok=True)
+        if not transform_path.exists() or not transform_path.is_dir():
+            raise NotADirectoryError(f'The path {transform_path} is not a directory.')
 
         self.path = transform_path
+
+
+    def load(self):
+        """
+
+        """
+        pass
+        # switch self.type
+        # case 'tfm':
+        #     stik.Tranform.read()
+        # case 'zarr':
+            
 
     def save(self):
         pass
@@ -44,18 +65,3 @@ class Transform:
         """
 
         pass
-
-
-def transform(path:str|Path, version:str):
-    """
-    Create an Transform
-
-    Parameters:
-        path:    path to the .vsr file
-        version: reconstruction version, see visor.info()['recon_versions']
-
-    Returns:
-        Transform
-    """
-    transform_path = Path(path)/'visor_recon_transforms'/version
-    return Transform(transform_path)
