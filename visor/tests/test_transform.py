@@ -2,13 +2,11 @@
 #   python -m unittest visor/tests/test_transform.py
 
 from pathlib import Path
+import json
 import unittest
 import shutil
 import visor
-import zarr
-import numpy
-import dask.array as da
-from zarr.codecs import BloscCodec
+import SimpleITK as sitk
 
 class TestBase(unittest.TestCase):
 
@@ -62,14 +60,38 @@ class TestTransform(TestBase):
         self.assertIsInstance(xfm, visor.Transform)
         self.assertEqual(xfm.path, self.another_transform_path)
 
-# class TestSpaceList(TestBase):
+    def test_update_meta(self):
 
-# class TestTransformRead(TestBase):
+        trans_meta = {
+            'name'  : 'raw_to_ortho',
+            'type'  : 'affine',
+            'format': 'tfm',
+        }
+        xfm = visor.Transform(
+            self.vsr_path,
+            recon_version=self.recon_version,
+            slice_name=self.another_slice_name,
+            create=True,
+        )
+        xfm.update_meta(trans = trans_meta)
+        with open(xfm.path/'transforms.json') as trans_json:
+            meta = json.load(trans_json)
+        self.assertEqual(meta, trans_meta)
 
-#class TestTransformWrite(TestBase):
 
-#class TestResample(TestBase):
-    # resample(transform, transform) -> transform
+class TestTransformLoad(TestBase):
 
-#class TestTransformPoint(TestBase):
-    # transform_point((coord, space), space) -> coord
+    def setUp(self):
+        super().setUp()
+        self.xfm = visor.Transform(
+            self.vsr_path,
+            recon_version=self.recon_version,
+            slice_name=self.slice_name,
+        )
+
+    def test_load(self):
+        t_raw_to_ortho = self.xfm.load(
+            from_space='raw',
+            to_space='ortho',
+        )
+        self.assertIsInstance(t_raw_to_ortho, sitk.Transform)

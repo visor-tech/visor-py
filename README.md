@@ -209,6 +209,13 @@ v_xfm.save(
     to_space='ortho',
     format='tfm',
 )
+v_xfm.update_meta(
+    trans = {
+        'name'  : f'{from_space}_to_{to_space}',
+        'type'  : 'affine',
+        'format': 'tfm',
+    }
+)
 # generate transform:
 # for slice_ in slices:
 #     for stack in stacks:

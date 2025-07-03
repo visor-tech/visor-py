@@ -71,7 +71,7 @@ class VSR:
         """
         info_file = self.path/'info.json'
         if not info_file.exists():
-            raise FileNotFoundError(f'Metadata file info.json is not found in {path}.')
+            raise FileNotFoundError(f'Metadata file info.json is not found in {self.path}.')
         with open(info_file) as f:
             info = json.load(f)
 
