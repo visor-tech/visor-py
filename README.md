@@ -174,11 +174,15 @@ v_xfm = visor.Transform(
 
 - Load Transform
 ```py
-# Function load() could be polymorphic based on transform type (e.g. affine) and file format (e.g. tfm)
-# for example, t_raw_to_ortho is an instance of SimpleITK.Transform
+# Function load() could be polymorphic based on transform type (e.g. affine) and file format (e.g. tfm), for example
+# raw_to_ortho is an affine transform stored as SimpleITK tfm format
+#   below load transform for stack index 0 and channel index 0
+#   where indices cooresponding to raw image
+# t_raw_to_ortho is an instance of SimpleITK.Transform
 t_raw_to_ortho = v_xfm.load(
     from_space='raw',
     to_space='ortho',
+    params=[0,0],
 )
 ```
 
@@ -196,6 +200,8 @@ raw_to_ortho_mat = [0, np.sin(45) * 1.03, 0,
                     3.5, np.cos(45) * 1.03, 0]
 
 offset_vec = [0,0,0]
+stack_idx = 0
+channel_idx = 0
 params = [stack_idx] + [channel_idx] + raw_to_ortho_mat + offset_vec,
 # another example could be
 # params = [stack_idx] + [channel_idx] + model_params,
@@ -203,17 +209,20 @@ params = [stack_idx] + [channel_idx] + raw_to_ortho_mat + offset_vec,
 # Save transform to disk
 # PATH: version/slice_/space_to_space/stack/channel/type.format
 # see more about transform type / format at https://visor-tech.github.io/visor-data-schema
+t_type = 'affine'
+t_format = 'tfm'
 v_xfm.save(
-    params=params,
     from_space='raw',
     to_space='ortho',
-    format='tfm',
+    t_type=t_type,
+    t_format=t_format,
+    params=params,
 )
 v_xfm.update_meta(
     trans = {
         'name'  : f'{from_space}_to_{to_space}',
-        'type'  : 'affine',
-        'format': 'tfm',
+        'type'  : t_type,
+        'format': t_format,
     }
 )
 # generate transform:

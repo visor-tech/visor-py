@@ -35,13 +35,14 @@ class Transform:
         self.path = transform_path
 
 
-    def load(self, from_space:str, to_space:str):
+    def load(self, from_space:str, to_space:str, params):
         """
         Load Transform
 
         Parameters:
             from_space: source space name
             to_space:   target space name
+            params:     parameters to identify transform
 
         Return:
             depends on transform type and format
@@ -60,31 +61,63 @@ class Transform:
                     t_name=t['name'],
                     t_type=t['type'],
                     t_format=t['format'],
+                    params=params,
                 )
             elif t_inv_name == t['name']:
                 return self._load_inv_trans(
                     t_name=t['name'],
                     t_type=t['type'],
                     t_format=t['format'],
+                    params=params,
                 )
             else:
                 raise FileNotFoundError(f'Transform {from_space}_to_{to_space} is not in {self.path}.')
 
-    def _load_trans(self, t_name:str, t_type:str, t_format:str):
-        trans_path = self.path/t_name/f'{t_type}.{t_format}'
-        if not trans_path.exists():
-            raise NotADirectoryError(f'The path {trans_path} is not a directory.')
-        
+    def _load_trans(self, t_name:str, t_type:str, t_format:str, params):
+
         if 'affine' == t_type and 'tfm' == t_format:
+            st_idx = params[0]
+            ch_idx = params[1]
+            trans_path = self.path/t_name/str(st_idx)/str(ch_idx)/f'{t_type}.{t_format}'
+            if not trans_path.exists():
+                raise NotADirectoryError(f'The path {trans_path} is not a directory.')
             return sitk.ReadTransform(trans_path)
 
     def _load_inv_trans(self, t_name:str, t_type:str, t_format:str):
         pass
 
-    def save(self):
-        pass
+    def save(self, from_space:str, to_space:str,
+             t_type:str, t_format:str, params):
+        """
+        Save Transform
 
-    def update_meta(self, recon:dict=None, trans:dict=None):
+        Parameters:
+            from_space: source space name
+            to_space:   target space name
+            t_type:     transform type
+            t_format:   transform store format in file system
+            params:     parameters to identify transform
+        """
+        t_name = f'{from_space}_to_{to_space}'
+        if (self.path/t_name).exists():
+            raise FileExistsError(f'The transform {self.path/t_name} already exists.')
+
+        if 'affine' == t_type and 'tfm' == t_format:
+            st_idx = params[0]
+            ch_idx = params[1]
+            t_path = self.path/t_name/str(st_idx)/str(ch_idx)/f'{t_type}.{t_format}'
+            t_path.parent.mkdir(parents=True)
+            t_path.touch()
+
+            t_mat = params[2:-3]
+            t_vec = params[-3:]
+            t = sitk.AffineTransform(3)
+            t.SetMatrix(t_mat)
+            t.SetTranslation(t_vec)
+            sitk.WriteTransform(t, t_path)
+
+
+    def update_meta(self, recon:dict=None, trans:list=None):
         """
         Update transforms.json
 

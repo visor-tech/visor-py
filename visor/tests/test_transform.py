@@ -7,6 +7,7 @@ import unittest
 import shutil
 import visor
 import SimpleITK as sitk
+import numpy as np
 
 class TestBase(unittest.TestCase):
 
@@ -88,10 +89,78 @@ class TestTransformLoad(TestBase):
             recon_version=self.recon_version,
             slice_name=self.slice_name,
         )
+        self.stack_idx = 0
+        self.channel_idx = 0
 
-    def test_load(self):
+    def test_load_affine_tfm(self):
         t_raw_to_ortho = self.xfm.load(
             from_space='raw',
             to_space='ortho',
+            params=[self.stack_idx, self.channel_idx]
         )
         self.assertIsInstance(t_raw_to_ortho, sitk.Transform)
+        self.assertEqual(sitk.Transform.GetParameters(t_raw_to_ortho),
+                         (0.0, 0.876430630270142, 0.0,
+                          0.0, 0.0, 1.03,
+                          3.5, 0.5410816484822616, 0.0,
+                          0.0, 0.0, 0.0))
+
+
+class TestTransformSave(TestBase):
+
+    def setUp(self):
+        super().setUp()
+        self.xfm = visor.Transform(
+            self.vsr_path,
+            recon_version=self.recon_version,
+            slice_name=self.another_slice_name,
+            create=True,
+        )
+
+        self.stack_idx = 0
+        self.channel_idx = 0
+        self.affine_mat = [ 0, np.sin(45) * 1.03, 0,
+                            0, 0, 1.03,
+                            3.5, np.cos(45) * 1.03, 0 ]
+        self.affine_vec = [0,0,0]
+        self.params = [self.stack_idx] + [self.channel_idx] + self.affine_mat + self.affine_vec
+
+    def tearDown(self):
+        if self.another_transform_path.exists():
+            shutil.rmtree(self.another_transform_path)
+
+    def test_save_affine_tfm(self):
+        t_type = 'affine'
+        t_format = 'tfm'
+        self.xfm.save(
+            from_space=self.from_space,
+            to_space=self.to_space,
+            t_type=t_type,
+            t_format=t_format,
+            params=self.params,
+        )
+
+        space_path = self.another_transform_path/f'{self.from_space}_to_{self.to_space}'
+        self.assertTrue(space_path.is_dir)
+        self.assertTrue((space_path/str(self.stack_idx)/str(self.channel_idx)).is_dir)
+        self.assertTrue((space_path/str(self.stack_idx)/str(self.channel_idx)/f'{t_type}.{t_format}').exists)
+
+        self.xfm.update_meta(
+            trans = [{
+                'name'  : f'{self.from_space}_to_{self.to_space}',
+                'type'  : t_type,
+                'format': t_format,
+            }]
+        )
+
+        t_raw_to_ortho = self.xfm.load(
+            from_space=self.from_space,
+            to_space=self.to_space,
+            params=[self.stack_idx, self.channel_idx]
+        )
+        self.assertIsInstance(t_raw_to_ortho, sitk.Transform)
+        self.assertEqual(sitk.Transform.GetParameters(t_raw_to_ortho),
+                         (0.0, 0.876430630270142, 0.0,
+                          0.0, 0.0, 1.03,
+                          3.5, 0.5410816484822616, 0.0,
+                          0.0, 0.0, 0.0))
