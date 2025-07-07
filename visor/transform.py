@@ -73,6 +73,7 @@ class Transform:
             else:
                 raise FileNotFoundError(f'Transform {from_space}_to_{to_space} is not in {self.path}.')
 
+
     def _load_trans(self, t_name:str, t_type:str, t_format:str, params):
 
         if 'affine' == t_type and 'tfm' == t_format:
@@ -85,8 +86,10 @@ class Transform:
                 raise NotADirectoryError(f'The path {trans_path} is not a directory.')
             return sitk.ReadTransform(trans_path)
 
+
     def _load_inv_trans(self, t_name:str, t_type:str, t_format:str):
         pass
+
 
     def save(self, from_space:str, to_space:str,
              t_type:str, t_format:str, params):

@@ -114,6 +114,7 @@ class Image:
         )
 
         return self.zgroup[str(resolution)]
+
     
     def update_attrs(self, attrs:dict):
         """
