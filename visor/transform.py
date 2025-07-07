@@ -136,22 +136,3 @@ class Transform:
             trans_json = self.path/'transforms.json'
             with open(trans_json, 'w') as tj:
                 json.dump(trans, tj)
-
-
-    def apply(self, roi:tuple[slice,...], from_space:str, to_space:str):
-        """
-        Apply Transform
-
-        Parameters:
-            roi:        tuple of slices, represents ROI coordinates in source space
-            from_space: name of the source space
-            to_space:   name of the target space
-
-        Returns:
-            tuple of slices
-
-        Note:
-            single point is a special case of ROI
-        """
-
-        pass
