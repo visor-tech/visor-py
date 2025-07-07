@@ -96,7 +96,7 @@ class TestTransformLoad(TestBase):
         t_raw_to_ortho = self.xfm.load(
             from_space='raw',
             to_space='ortho',
-            params=[self.stack_idx, self.channel_idx]
+            params=[self.stack_idx, self.channel_idx],
         )
         self.assertIsInstance(t_raw_to_ortho, sitk.Transform)
         self.assertEqual(sitk.Transform.GetParameters(t_raw_to_ortho),
@@ -104,6 +104,26 @@ class TestTransformLoad(TestBase):
                           0.0, 0.0, 1.03,
                           3.5, 0.5410816484822616, 0.0,
                           0.0, 0.0, 0.0))
+
+    def test_load_affine_tfm_with_incorrect_params(self):
+        with self.assertRaises(ValueError) as context:
+            self.xfm.load(
+                from_space='raw',
+                to_space='ortho',
+                params=[],
+            )
+        self.assertEqual(str(context.exception),
+                         'Loading affine transform requires [stack_index, channel_index] in params.')
+
+    def test_load_not_exist(self):
+        with self.assertRaises(FileNotFoundError) as context:
+            self.xfm.load(
+                from_space='raw',
+                to_space='brain',
+                params=[self.stack_idx, self.channel_idx],
+            )
+        self.assertEqual(str(context.exception),
+                         f'Transform raw_to_brain is not in {self.transform_path}.')
 
 
 class TestTransformSave(TestBase):
@@ -156,7 +176,7 @@ class TestTransformSave(TestBase):
         t_raw_to_ortho = self.xfm.load(
             from_space=self.from_space,
             to_space=self.to_space,
-            params=[self.stack_idx, self.channel_idx]
+            params=[self.stack_idx, self.channel_idx],
         )
         self.assertIsInstance(t_raw_to_ortho, sitk.Transform)
         self.assertEqual(sitk.Transform.GetParameters(t_raw_to_ortho),
@@ -164,3 +184,15 @@ class TestTransformSave(TestBase):
                           0.0, 0.0, 1.03,
                           3.5, 0.5410816484822616, 0.0,
                           0.0, 0.0, 0.0))
+
+    def test_save_affine_tfm_with_incorrect_params(self):
+        with self.assertRaises(ValueError) as context:
+            self.xfm.save(
+                from_space=self.from_space,
+                to_space=self.to_space,
+                t_type='affine',
+                t_format='tfm',
+                params=[],
+            )
+        self.assertEqual(str(context.exception),
+                         'Saving affine transform requires [stack_index, channel_index, affine_mat, affine_vec] in params.')

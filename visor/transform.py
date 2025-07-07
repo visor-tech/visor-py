@@ -76,6 +76,8 @@ class Transform:
     def _load_trans(self, t_name:str, t_type:str, t_format:str, params):
 
         if 'affine' == t_type and 'tfm' == t_format:
+            if (not isinstance(params, list)) or (2 != len(params)):
+                raise ValueError('Loading affine transform requires [stack_index, channel_index] in params.')
             st_idx = params[0]
             ch_idx = params[1]
             trans_path = self.path/t_name/str(st_idx)/str(ch_idx)/f'{t_type}.{t_format}'
@@ -103,6 +105,8 @@ class Transform:
             raise FileExistsError(f'The transform {self.path/t_name} already exists.')
 
         if 'affine' == t_type and 'tfm' == t_format:
+            if (not isinstance(params, list)) or (14 != len(params)):
+                raise ValueError('Saving affine transform requires [stack_index, channel_index, affine_mat, affine_vec] in params.')
             st_idx = params[0]
             ch_idx = params[1]
             t_path = self.path/t_name/str(st_idx)/str(ch_idx)/f'{t_type}.{t_format}'
