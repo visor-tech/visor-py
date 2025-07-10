@@ -1,0 +1,12 @@
+{
+  "personnel": "xxx",
+  "create_time": "2025-05-25T20:25:05Z",
+  "spaces": ["raw","ortho","brain"],
+  "keywords": ["SimpleITK","Elastix"],
+  "slices": [
+      {
+          "name": "slice_1_10x",
+          "transforms": ["raw_to_ortho","raw_to_brain"]
+      }
+  ]
+}

@@ -1,13 +1,13 @@
 [
   {
-    "path": "slice_1_10x.zarr",
+    "name": "slice_1_10x",
     "channels": [
       "488",
       "561"
     ]
   },
   {
-    "path": "slice_1_10x_1.zarr",
+    "name": "slice_1_10x_1",
     "channels": [
       "405",
       "640"

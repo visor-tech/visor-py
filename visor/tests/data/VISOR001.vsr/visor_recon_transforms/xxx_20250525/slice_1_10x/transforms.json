@@ -1,0 +1,12 @@
+[
+  {
+      "name": "raw_to_ortho",
+      "type": "affine",
+      "format": "tfm"
+  },
+  {
+      "name": "raw_to_brain",
+      "type": "model",
+      "format": "binary"
+  }
+]
