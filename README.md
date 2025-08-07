@@ -161,6 +161,20 @@ attrs['visor']['visor_stacks'].append(
 v_img.update_attrs(attrs)
 ```
 
+#### ROI
+- Construct and Load ROI
+```py
+# v_roi is an instance of visor.ROI
+v_roi:visor.ROI = visor.ROI(
+    image_path=v_img.path, # :str|Path
+    resolution='0',        # :str|int
+    ranges=(1,1,slice(2,3),slice(None),slice(None)),
+    # :tuple[slice|int, ...], ch,st,z,y,x
+)
+# np_arr is a numpy.ndarray
+np_arr:numpy.ndarray = v_roi.load()
+```
+
 #### Transform
 - Construct Transform
 ```py
