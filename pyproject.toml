@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "visor-py"
-version = "2025.8.1.post1"
+version = "2025.8.1.post2"
 description = "A Python Library for VISoR Image."
 authors = [
     { name = "Zijian Yi", email = "arrowzeke@gmail.com" },
@@ -21,6 +21,7 @@ dependencies = [
   "zarr>=3,<4",
   "zarrs>=0.1.4",
   "numcodecs>=0.16",
+  "simpleitk>=2.5.2",
 ]
 keywords = ["VISoR"]
 
