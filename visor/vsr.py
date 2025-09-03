@@ -97,7 +97,7 @@ class VSR:
                 with open(dir/'selected.json') as sf:
                     images['raw'] = json.load(sf)
                 for i in images['raw']:
-                    i['resolutions'] = self._resolutions(dir/f'{i['name']}.zarr'/'zarr.json')
+                    i['resolutions'] = self._resolutions(dir/f"{i['name']}.zarr"/'zarr.json')
             else:
                 images[t] = [{
                     'name': d.name.replace('.zarr',''),
