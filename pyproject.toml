@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,10 +11,10 @@ authors = [
     { name = "Eddy Xiao", email = "bewantbe@gmail.com" },
 ]
 readme = "README.md"
-license = { text = "BSD" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
 ]
 requires-python = ">=3.11"
 dependencies = [
