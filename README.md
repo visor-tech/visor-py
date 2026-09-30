@@ -1,5 +1,7 @@
 # visor-py
-A Python Library for VISoR Image.
+A Python library for VISoR image I/O, fully compliant with the OME-Zarr schema.
+The API, internal directory hierarchy, and metadata structure are designed to simplify working with VISoR raw and reconstructed data, including multi-resolution image pyramids.
+It also provides unified support for related image sets and common Zarr features, such as storing MIP (maximum intensity projection) images and using custom compressors.
 
 > [!NOTE]
 > Since [v2025.5.1](https://github.com/visor-tech/visor-py/releases/tag/v2025.5.1), we've switched to [Zarr v3](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html), are using [zarrs](https://github.com/ilan-gold/zarrs-python) to speed up I/O, and have replaced [dask](https://github.com/dask/dask) since it has not yet optimized its I/O for sharded Zarr.
