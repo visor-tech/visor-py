@@ -1,8 +1,7 @@
 from pathlib import Path
 import json
 import zarr
-import zarrs
-zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
+from ._zarrs import enable_zarrs_acceleration
 
 class VSR:
 
@@ -14,6 +13,7 @@ class VSR:
             vsr_path: path to the .vsr file
             create:   boolean
         """
+        enable_zarrs_acceleration()
         vsr_path = Path(vsr_path)
         if vsr_path.suffix != '.vsr':
             raise ValueError(f'The path {vsr_path} does not have .vsr extension.')

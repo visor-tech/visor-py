@@ -118,12 +118,22 @@ class TestTransformLoad(TestBase):
     def test_load_not_exist(self):
         with self.assertRaises(FileNotFoundError) as context:
             self.xfm.load(
+                from_space='ortho',
+                to_space='sample',
+                params=[self.stack_idx, self.channel_idx],
+            )
+        self.assertEqual(str(context.exception),
+                         f'Transform ortho_to_sample is not in {self.transform_path}.')
+
+    def test_load_unsupported_type(self):
+        # the fixture's raw_to_brain entry is type 'model' / format 'binary':
+        # found, but loading is not implemented
+        with self.assertRaises(NotImplementedError):
+            self.xfm.load(
                 from_space='raw',
                 to_space='brain',
                 params=[self.stack_idx, self.channel_idx],
             )
-        self.assertEqual(str(context.exception),
-                         f'Transform raw_to_brain is not in {self.transform_path}.')
 
 
 class TestTransformSave(TestBase):

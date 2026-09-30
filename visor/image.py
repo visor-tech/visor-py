@@ -1,7 +1,6 @@
 from pathlib import Path
+from ._zarrs import enable_zarrs_acceleration
 import zarr
-import zarrs
-zarr.config.set({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 from zarr.codecs import BytesCodec
 import numpy
 
@@ -18,6 +17,7 @@ class Image:
             image_name: image name, see vsr.images()
             create:     boolean
         """
+        enable_zarrs_acceleration()
         vsr_path = Path(vsr_path)
         # Validate vsr path
         if vsr_path.suffix != '.vsr':
@@ -82,18 +82,19 @@ class Image:
     def save(
             self, arr:numpy.ndarray, resolution:str, dtype:str,
             shape:tuple, shard_size:tuple, chunk_size:tuple,
-            compressors:BytesCodec):
+            compressors:BytesCodec, overwrite:bool=False):
         """
-        Create a zarr array
+        Create a zarr array and write arr into it
 
         Parameters:
-            arr:         the array to save
+            arr:         the array to save (pass None to only create the array)
             resolution:  resolution level, see vsr.images()
             dtype:       zarr array dtype
             shape:       zarr array shape
             shard_size:  zarr array shard_size
             chunk_size:  zarr array chunk_size
             compressors: zarr array compressors
+            overwrite:   replace an existing resolution array if True
 
         Returns:
             zarr.Array
@@ -101,9 +102,9 @@ class Image:
 
         array_path = self.path/str(resolution)
 
-        if array_path.is_dir():
+        if array_path.is_dir() and not overwrite:
             raise FileExistsError(f'The array {array_path} already exist.')
-        zarr.create_array(
+        zarr_array = zarr.create_array(
             store=self.path,
             name=str(resolution),
             dtype=dtype,
@@ -111,7 +112,11 @@ class Image:
             shards=shard_size,
             chunks=chunk_size,
             compressors=compressors,
+            overwrite=overwrite,
         )
+
+        if arr is not None:
+            zarr_array[...] = arr
 
         return self.zgroup[str(resolution)]
 
