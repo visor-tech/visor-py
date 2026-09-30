@@ -7,7 +7,12 @@ import shutil
 import visor
 import zarr
 import numpy
-import dask.array as da
+try:
+    import dask.array as da
+    HAS_DASK = True
+except ImportError:
+    da = None
+    HAS_DASK = False
 from zarr.codecs import BloscCodec
 
 class TestBase(unittest.TestCase):
@@ -33,6 +38,22 @@ class TestROI(TestBase):
         self.assertIsInstance(roi.img, visor.Image)
         self.assertEqual(roi.resolution, self.resolution)
         self.assertEqual(roi.ranges, self.ranges)
+
+    def test_init_from_image(self):
+        img = visor.Image(
+            self.image_path.parent.parent,
+            image_type='raw',
+            image_name=self.image_path.name.replace('.zarr',''),
+        )
+        roi = visor.ROI(
+            resolution=self.resolution,
+            ranges=self.ranges,
+            image=img,
+        )
+        self.assertIsInstance(roi, visor.ROI)
+        self.assertIs(roi.img, img)
+        np_arr = roi.load()
+        self.assertEqual(np_arr.shape, (1, 4, 4))
 
 
 class TestROILoad(TestBase):

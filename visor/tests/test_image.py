@@ -7,7 +7,12 @@ import shutil
 import visor
 import zarr
 import numpy
-import dask.array as da
+try:
+    import dask.array as da
+    HAS_DASK = True
+except ImportError:
+    da = None
+    HAS_DASK = False
 from zarr.codecs import BloscCodec
 
 class TestBase(unittest.TestCase):
@@ -102,8 +107,9 @@ class TestImageLoad(TestBase):
         self.assertEqual(sub_np_arr.ndim, 5)
         self.assertEqual(sub_np_arr.shape, (1, 1, 4, 4, 4))
 
-        da_arr = da.from_array(arr, chunks=arr.chunks)
-        self.assertIsInstance(da_arr, da.Array)
+        if HAS_DASK:
+            da_arr = da.from_array(arr, chunks=arr.chunks)
+            self.assertIsInstance(da_arr, da.Array)
 
 
 class TestImageSave(TestBase):
